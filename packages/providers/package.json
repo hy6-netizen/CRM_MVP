@@ -1,0 +1,5 @@
+{
+  "name": "@hub/providers",
+  "private": true,
+  "type": "module"
+}

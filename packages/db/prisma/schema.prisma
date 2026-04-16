@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole { admin manager staff reviewer }
+enum RiskLevel { low medium high }
+enum ChannelType { naver_talk kakao_channel kakao_biz naver_reservation naver_review manual unknown }
+enum ConversationStatus { open pending resolved escalated }
+enum ReservationStatus { new pending_confirmation confirmed change_requested canceled no_show_risk completed }
+enum ReviewStatus { new draft_generated needs_review approved posted archived escalated }
+enum ComplianceStatus { approved rejected revision_required }
+enum JobStatus { queued running success failed deadletter }
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  role      UserRole
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PatientContact {
+  id            String      @id @default(cuid())
+  externalKey   String?
+  channel       ChannelType
+  name          String?
+  phoneMasked   String?
+  notes         String?
+  conversations Conversation[]
+  createdAt     DateTime @default(now())
+}
+
+model Conversation {
+  id               String             @id @default(cuid())
+  channel          ChannelType
+  externalThreadId String?
+  contactId        String
+  status           ConversationStatus @default(open)
+  category         String?
+  riskLevel        RiskLevel @default(low)
+  assigneeId       String?
+  lastMessageAt    DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  messages         Message[]
+}
+
+model Message {
+  id             String      @id @default(cuid())
+  conversationId String
+  direction      String
+  sourceChannel  ChannelType
+  content        String
+  metaJson       Json?
+  createdAt      DateTime @default(now())
+}
+
+model Reservation {
+  id                    String            @id @default(cuid())
+  sourceChannel         ChannelType
+  externalReservationId String?
+  patientName           String
+  phoneMasked           String?
+  reservationAt         DateTime
+  status                ReservationStatus @default(new)
+  assigneeId            String?
+  notes                 String?
+  capabilityFlagsJson   Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model Review {
+  id                 String       @id @default(cuid())
+  sourceChannel      ChannelType
+  externalReviewId   String?
+  reviewerNameMasked String?
+  rating             Int
+  content            String
+  rawPayloadJson     Json?
+  status             ReviewStatus @default(new)
+  sentiment          String?
+  riskLevel          RiskLevel @default(low)
+  assigneeId         String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  replyDrafts        ReviewReplyDraft[]
+}
+
+model ReviewReplyDraft {
+  id               String           @id @default(cuid())
+  reviewId         String
+  draft            String
+  complianceStatus ComplianceStatus
+  generatorMetaJson Json?
+  approvedBy       String?
+  approvedAt       DateTime?
+  postedAt         DateTime?
+  createdAt        DateTime @default(now())
+}
+
+model Template {
+  id                  String      @id @default(cuid())
+  code                String      @unique
+  body                String
+  channel             ChannelType
+  intent              String
+  title               String
+  variables           Json?
+  enabled             Boolean     @default(true)
+  requiresHumanReview Boolean     @default(true)
+  complianceLevel     String      @default("strict")
+  createdBy           String?
+  updatedBy           String?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  entityType String
+  entityId   String
+  action     String
+  beforeJson Json?
+  afterJson  Json?
+  createdAt  DateTime @default(now())
+}
+
+model Job {
+  id          String    @id @default(cuid())
+  type        String
+  payloadJson Json
+  status      JobStatus @default(queued)
+  runAt       DateTime
+  attempts    Int       @default(0)
+  createdAt   DateTime  @default(now())
+}

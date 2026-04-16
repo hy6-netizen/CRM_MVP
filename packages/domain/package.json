@@ -1,0 +1,5 @@
+{
+  "name": "@hub/domain",
+  "private": true,
+  "type": "module"
+}

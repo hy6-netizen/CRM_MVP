@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "@hub/domain/*": ["packages/domain/*"],
+      "@hub/ai/*": ["packages/ai/*"],
+      "@hub/providers/*": ["packages/providers/*"],
+      "@hub/queue/*": ["packages/queue/*"],
+      "@hub/db/*": ["packages/db/*"]
+    },
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true
+  }
+}
