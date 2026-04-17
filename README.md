@@ -4,7 +4,9 @@
 한 화면에서 네이버 예약/리뷰/톡톡 + 카카오 채널/비즈 메시지를 운영 보조하고,
 반복 문의는 템플릿으로 자동화, 민감/위험 상담은 사람 검토로 라우팅합니다.
 
-> 제품 철학과 전체 설계는 [`docs_PRODUCT_AND_OPERATIONS.md`](./docs_PRODUCT_AND_OPERATIONS.md) 참조.
+> - **사용 매뉴얼**: [`docs/USER_MANUAL.md`](./docs/USER_MANUAL.md)
+> - **실 API 연동 로드맵**: [`docs/INTEGRATION_ROADMAP.md`](./docs/INTEGRATION_ROADMAP.md)
+> - **제품/운영 설계**: [`docs_PRODUCT_AND_OPERATIONS.md`](./docs_PRODUCT_AND_OPERATIONS.md)
 
 ---
 
