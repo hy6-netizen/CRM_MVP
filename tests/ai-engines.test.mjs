@@ -53,6 +53,32 @@ test("queue — 10개 job type + retry policy", async () => {
   assert.ok(c.includes("RETRY_POLICY"), "RETRY_POLICY 미정의");
 });
 
+test("LLM dispatcher — 3 파일 (types/mock/openai/index)", async () => {
+  for (const f of [
+    "packages/ai/src/llm/types.ts",
+    "packages/ai/src/llm/mock.ts",
+    "packages/ai/src/llm/openai.ts",
+    "packages/ai/src/llm/index.ts",
+  ]) {
+    await fs.access(f);
+  }
+  const idx = await fs.readFile("packages/ai/src/llm/index.ts", "utf8");
+  assert.ok(idx.includes("AI_PROVIDER"), "dispatcher 가 AI_PROVIDER env 를 읽어야 함");
+  assert.ok(idx.includes("mockLLMProvider") && idx.includes("createOpenAIProvider"), "두 provider 분기 필요");
+});
+
+test("OpenAI provider — 의성한방병원 톤 + 의도 레벨 탐지 규칙", async () => {
+  const c = await fs.readFile("packages/ai/src/llm/openai.ts", "utf8");
+  // 고정 인사/마무리 문구를 system 프롬프트에 명시
+  assert.ok(c.includes("안녕하세요~ 의성한방병원입니다."), "GREETING 누락");
+  assert.ok(c.includes("감사합니다~^^"), "CLOSING 누락");
+  // 의도 레벨 키워드 (사용자 요구사항: 내부 로직은 못 잡는 것)
+  assert.ok(c.includes("모든 증상/질환"), "의도 레벨 탐지 예시 누락");
+  assert.ok(c.includes("다 낫게"), "'다 낫게' 의도 탐지 누락");
+  // Structured output schema
+  assert.ok(c.includes("json_schema") && c.includes("strict: true"), "strict JSON schema 사용 필수");
+});
+
 test("prisma schema — 14 핵심 모델", async () => {
   const c = await fs.readFile("packages/db/prisma/schema.prisma", "utf8");
   for (const model of [

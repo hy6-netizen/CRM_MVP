@@ -90,53 +90,43 @@ if (process.env.NODE_ENV !== "production") g.prisma = prisma;
 
 ---
 
-## 단계 2 · LLM 엔진 연결 (OpenAI 또는 Anthropic)
+## 단계 2 · LLM 엔진 연결 ✅ **구현 완료 (OpenAI GPT)**
 
-**목표:** 지금의 결정형 engine 을 **진짜 LLM 호출**로 업그레이드.
-기존 결정형 로직은 **fallback** 으로 남김.
+지금의 결정형 engine 은 **mock provider** 로 남고, `AI_PROVIDER=openai` 로 전환 시 GPT 호출.
 
-### 2-1. SDK 설치
-```bash
-pnpm --filter @hub/ai add @anthropic-ai/sdk   # 또는 openai
+### 2-1. 파일 구조
+```
+packages/ai/src/llm/
+  types.ts       - LLMProvider 인터페이스
+  mock.ts        - 결정형 엔진 wrapper (fallback)
+  openai.ts      - GPT-4o-mini 기본, Structured Outputs + 프롬프트 캐싱
+  index.ts       - AI_PROVIDER env 기반 dispatcher
 ```
 
-### 2-2. provider abstraction 추가
-`packages/ai/src/llm/types.ts`:
-```ts
-export interface LLMProvider {
-  name: "openai" | "anthropic" | "mock";
-  generateReviewReply(input: ReviewEngineInput): Promise<ReviewEngineOutput>;
-  classifyConversation(text: string): Promise<ConversationClassification>;
-}
+### 2-2. 전환 방법
+`.env` 에:
+```
+AI_PROVIDER=openai
+AI_MODEL=gpt-4o-mini        # 또는 gpt-4o / gpt-4.1-mini / gpt-4.1
+OPENAI_API_KEY=sk-...
 ```
 
-`packages/ai/src/llm/anthropic.ts` — Claude 호출. 기존 `reviewReplyEngine.ts` 의 규칙(고정 인사/마무리/다짐 문구 11개)을 **system prompt** 로 넣고, 결과 JSON 을 받아서 파싱.
+### 2-3. 동작
+- 리뷰 답글 생성 API → GPT 호출 → 실패 시 결정형 fallback
+- 컴플라이언스 **이중검사**: 키워드(1차) → GPT 의도 레벨(2차)
+- "환자의 모든 질환을 낫게 한다" 같이 키워드로 못 잡는 과장도 GPT가 판단
+- 모든 LLM 호출은 audit log 에 provider / 토큰 사용량 / 비용 추정 기록
 
-`packages/ai/src/llm/index.ts` — `AI_PROVIDER` env 에 따라 선택:
-```ts
-export function getLLM(): LLMProvider {
-  if (process.env.AI_PROVIDER === "anthropic") return anthropicProvider;
-  if (process.env.AI_PROVIDER === "openai") return openaiProvider;
-  return mockProvider;   // 지금의 결정형 엔진
-}
-```
+### 2-4. 비용 (30건/일 기준)
+- gpt-4o-mini: **월 $0.40** 내외 (프롬프트 캐싱 적용 시 더 낮음)
+- gpt-4o: 월 ~$5
+- gpt-4.1: 월 ~$4
 
-### 2-3. API route 수정
-`app/api/reviews/[id]/generate-draft/route.ts`:
-```ts
-const llm = getLLM();
-const engine = await llm.generateReviewReply({...});
-const compliance = runComplianceCheck(engine.draft);  // 컴플라이언스는 항상 통과해야 함
-```
+품질 부족하면 AI_MODEL 만 바꾸면 됨.
 
-**중요:** LLM 결과라도 **컴플라이언스 검사는 그대로 필수**. LLM 이 "완치" 같은 단어 내보낼 수 있으니까.
-
-### 2-4. 환경변수
-`.env`:
-```
-AI_PROVIDER=anthropic    # 또는 openai, mock
-ANTHROPIC_API_KEY=sk-ant-...
-```
+### 2-5. 다른 provider 로 전환하려면
+`packages/ai/src/llm/` 에 새 파일(e.g. `anthropic.ts`, `gemini.ts`, `ollama.ts`) 만들어
+`LLMProvider` 구현 후 dispatcher 에 분기 추가. 기존 코드는 손대지 않아도 됨.
 
 ---
 

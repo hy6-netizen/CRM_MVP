@@ -14,8 +14,23 @@
 ```bash
 cd /Users/minions/CRM_MVP_repo
 pnpm install           # 최초 1회
+cp .env.example .env   # AI 쓰려면 OPENAI_API_KEY 채우기 (아래 0-1 참고)
 pnpm dev               # http://localhost:3000 (또는 3001)
 ```
+
+### 0-1. LLM (GPT) 연결 — 선택이지만 강력 추천
+
+`.env` 편집:
+```bash
+AI_PROVIDER=openai
+AI_MODEL=gpt-4o-mini        # 월 $0.40 내외 (30건/일 기준)
+OPENAI_API_KEY=sk-...        # OpenAI API key
+```
+
+- `AI_PROVIDER=mock` (기본): 결정형 엔진 — 고정 문구 조합. "환자의 모든 질환을 낫게 한다" 같은 의도 레벨 과장은 못 잡음.
+- `AI_PROVIDER=openai`: GPT 호출. 답글 자연스러움 + 의도 레벨 컴플라이언스 이중검사.
+
+품질 부족 시 `AI_MODEL=gpt-4o` 로 승격 가능.
 
 - 서버를 껐다 켜면 모든 샘플 데이터가 **초기 상태로 리셋**됩니다.
 - 끄기: 터미널에서 `Ctrl+C`
@@ -97,17 +112,21 @@ pnpm dev               # http://localhost:3000 (또는 3001)
 ### 액션 버튼 사용법
 
 #### ① 초안 생성 / 재생성
-- 결정형 AI 엔진이 규칙 기반으로 답글 초안 생성
+- `AI_PROVIDER=openai` 이면 GPT 호출 → 자연스러운 문장 생성 (같은 리뷰라도 매번 약간 다름)
+- `AI_PROVIDER=mock` 이면 결정형 엔진 (같은 리뷰엔 항상 같은 초안)
 - 의성한방병원 고정 인사 + 공감 문구 + 다짐 문구 1개 + 고정 마무리
-- 별점 1~3, 부작용/환불/분쟁 언급이 있으면 자동으로 `needs_review` 상태로 이동
-- **같은 리뷰는 누를 때마다 같은 결과가 나옵니다** (콘텐츠 해시 기반 결정형)
+- 별점 1~3, 부작용/환불/분쟁 언급이 있으면 자동으로 `needs_review` 상태
+- LLM 호출 실패 시 자동으로 결정형 fallback (사용자는 눈치 못 챔)
 
-#### ② 컴플라이언스 검사
-- 현재 textarea 내용을 BLOCKED 22개 / CAUTION 9개 규칙으로 검사
+#### ② 컴플라이언스 검사 (이중검사)
+- **1차**: 키워드 스캔 (BLOCKED 22개 / CAUTION 9개). 빠르고 무료.
+- **2차**: LLM 의도 검사. 1차 통과 + `AI_PROVIDER=openai` 일 때만 실행.
+  - "환자의 모든 질환을 낫게 한다", "다른 병원보다 앞선 기술", "어떤 증상이든 해결" 같이
+    키워드로는 못 잡는 **의도 레벨 과장**을 GPT가 판단.
 - 결과:
   - `approved` → 그대로 승인 가능
-  - `revision_required` → 자동 수정 제안이 나옴. "이 수정안으로 교체" 버튼으로 바로 적용
-  - `rejected` → 수정해야만 승인 가능 (승인 버튼 눌러도 422 에러)
+  - `revision_required` → 자동 수정 제안. "이 수정안으로 교체" 버튼.
+  - `rejected` → 수정해야만 승인 가능 (승인 버튼 눌러도 422).
 
 #### ③ 승인
 - 최종 문구를 `approved` 상태로 저장
