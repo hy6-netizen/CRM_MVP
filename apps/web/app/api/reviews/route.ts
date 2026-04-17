@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { reviews, recordAudit, __mockMeta } from "../../../src/lib/mockStore";
-import type { ReviewRow } from "../../../src/lib/mockStore";
+import { prisma } from "../../../src/lib/db";
+import { recordAudit } from "../../../src/lib/audit";
 
 const CreateSchema = z.object({
   reviewerNameMasked: z.string().optional(),
@@ -16,11 +16,15 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const status = url.searchParams.get("status");
   const minRating = url.searchParams.get("minRating");
-  let list = [...reviews];
-  if (status) list = list.filter((r) => r.status === status);
-  if (minRating) list = list.filter((r) => r.rating >= Number(minRating));
-  list.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
-  return NextResponse.json({ items: list, count: list.length });
+  const items = await prisma.review.findMany({
+    where: {
+      ...(status ? { status: status as never } : {}),
+      ...(minRating ? { rating: { gte: Number(minRating) } } : {}),
+    },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
+  return NextResponse.json({ items, count: items.length });
 }
 
 export async function POST(req: Request) {
@@ -29,20 +33,19 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "validation", issues: parsed.error.format() }, { status: 400 });
   }
-  const row: ReviewRow = {
-    id: __mockMeta.nextId("rv"),
-    sourceChannel: "naver_review",
-    reviewerNameMasked: parsed.data.reviewerNameMasked ?? "익명",
-    rating: parsed.data.rating,
-    content: parsed.data.content,
-    status: "new",
-    riskLevel: parsed.data.rating <= 3 ? "high" : "low",
-    imageUrl: parsed.data.imageUrl,
-    treatmentMentioned: parsed.data.treatmentMentioned,
-    staffMentioned: parsed.data.staffMentioned,
-    createdAt: __mockMeta.now(),
-  };
-  reviews.unshift(row);
-  recordAudit({ entityType: "Review", entityId: row.id, action: "review.created", after: row });
+  const row = await prisma.review.create({
+    data: {
+      sourceChannel: "naver_review",
+      reviewerNameMasked: parsed.data.reviewerNameMasked ?? "익명",
+      rating: parsed.data.rating,
+      content: parsed.data.content,
+      imageUrl: parsed.data.imageUrl,
+      treatmentMentioned: parsed.data.treatmentMentioned,
+      staffMentioned: parsed.data.staffMentioned,
+      status: "new",
+      riskLevel: parsed.data.rating <= 3 ? "high" : "low",
+    },
+  });
+  await recordAudit({ entityType: "Review", entityId: row.id, action: "review.created", after: row });
   return NextResponse.json(row, { status: 201 });
 }

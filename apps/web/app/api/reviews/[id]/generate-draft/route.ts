@@ -3,16 +3,16 @@ import { generateReviewReply as deterministicReviewReply } from "@hub/ai/src/rev
 import { runComplianceCheck as keywordCompliance } from "@hub/ai/src/complianceChecker";
 import { getLLM } from "@hub/ai/src/llm";
 import type { ComplianceResult, ReviewEngineOutput } from "@hub/domain/src/types";
-import { findReview, recordAudit } from "../../../../../src/lib/mockStore";
+import { prisma } from "../../../../../src/lib/db";
+import { recordAudit } from "../../../../../src/lib/audit";
 
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const review = findReview(id);
+  const review = await prisma.review.findUnique({ where: { id } });
   if (!review) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
   const llm = getLLM();
 
-  // 1) 초안 생성. LLM 실패 시 결정형 엔진으로 fallback.
   let engine: ReviewEngineOutput;
   let generator = llm.name;
   let llmError: string | null = null;
@@ -21,8 +21,8 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
     const resp = await llm.generateReviewReply({
       rating: review.rating,
       content: review.content,
-      treatmentMentioned: review.treatmentMentioned,
-      staffMentioned: review.staffMentioned,
+      treatmentMentioned: review.treatmentMentioned ?? undefined,
+      staffMentioned: review.staffMentioned ?? undefined,
     });
     engine = resp.result;
     generator = resp.provider;
@@ -33,16 +33,13 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
     engine = deterministicReviewReply({
       rating: review.rating,
       content: review.content,
-      treatmentMentioned: review.treatmentMentioned,
-      staffMentioned: review.staffMentioned,
+      treatmentMentioned: review.treatmentMentioned ?? undefined,
+      staffMentioned: review.staffMentioned ?? undefined,
     });
     generator = "mock(fallback)";
   }
 
-  // 2) 키워드 기반 컴플라이언스 검사 (빠르고 무료).
   const keyword = keywordCompliance(engine.draft);
-
-  // 3) 키워드 통과 시 + LLM 사용 중이면 의도 레벨 재검사.
   let compliance: ComplianceResult = keyword;
   let intentChecker: string | null = null;
   let intentUsage: unknown;
@@ -53,29 +50,35 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
       intentChecker = intent.provider;
       intentUsage = intent.usage;
     } catch (e) {
-      console.error("[generate-draft] 의도 검사 실패 (키워드 결과 유지)", e);
+      console.error("[generate-draft] 의도 검사 실패", e);
     }
   }
 
-  // 4) 상태/리뷰 업데이트
-  const before = { ...review };
-  review.draft = engine.draft;
-  review.draftReasons = engine.reasons;
-  review.sentiment = engine.sentiment;
-  review.category = engine.category;
-  review.riskLevel = engine.riskLevel;
-  review.complianceStatus = compliance.status;
-  review.approvedDraft = compliance.approvedDraft || engine.draft;
-  review.status = engine.needsHumanReview || compliance.status !== "approved" ? "needs_review" : "draft_generated";
+  const nextStatus =
+    engine.needsHumanReview || compliance.status !== "approved" ? "needs_review" : "draft_generated";
 
-  recordAudit({
+  const updated = await prisma.review.update({
+    where: { id },
+    data: {
+      draft: engine.draft,
+      draftReasons: engine.reasons,
+      sentiment: engine.sentiment,
+      category: mapReviewCategory(engine.category),
+      riskLevel: engine.riskLevel,
+      complianceStatus: compliance.status,
+      approvedDraft: compliance.approvedDraft || engine.draft,
+      status: nextStatus,
+    },
+  });
+
+  await recordAudit({
     actorName: "system",
     entityType: "Review",
     entityId: id,
     action: "review.draft_generated",
-    before,
+    before: review,
     after: {
-      status: review.status,
+      status: updated.status,
       complianceStatus: compliance.status,
       generator,
       intentChecker,
@@ -88,7 +91,21 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   return NextResponse.json({
     engine,
     compliance,
-    review,
+    review: updated,
     meta: { generator, intentChecker, llmError, usage: llmUsage, intentUsage },
   });
+}
+
+// ReviewCategory enum 한글 키 → prisma 매핑값
+function mapReviewCategory(c: ReviewEngineOutput["category"]): string {
+  const map: Record<ReviewEngineOutput["category"], string> = {
+    친절: "KIND",
+    치료만족: "TREATMENT",
+    회복후기: "RECOVERY",
+    짧은감사: "SHORT_THX",
+    재방문의사: "REVISIT",
+    불만: "COMPLAINT",
+    기타: "OTHER",
+  };
+  return map[c];
 }

@@ -3,9 +3,8 @@
 이 문서는 의성한방병원 운영팀이 Hospital Ops Hub 를 **어떻게 쓰는가**를 설명합니다.
 기술 구조는 `README.md`, 제품 설계는 `docs_PRODUCT_AND_OPERATIONS.md` 를 참고하세요.
 
-> **현재 단계**: 모든 데이터는 mock store(메모리)에 저장됩니다.
-> 브라우저를 새로고침해도 유지되지만, **dev 서버를 재시작하면 초기 샘플로 돌아갑니다.**
-> 실 DB / 실 API 연동은 `docs/INTEGRATION_ROADMAP.md` 의 단계별 계획 참조.
+> **현재 단계**: Postgres 영구 저장 (seed 로 샘플 데이터 포함).
+> 외부 채널(네이버/카카오) 실 API 연동은 [`docs/INTEGRATION_ROADMAP.md`](./INTEGRATION_ROADMAP.md) 단계별 계획 참조.
 
 ---
 
@@ -13,10 +12,19 @@
 
 ```bash
 cd /Users/minions/CRM_MVP_repo
-pnpm install           # 최초 1회
-cp .env.example .env   # AI 쓰려면 OPENAI_API_KEY 채우기 (아래 0-1 참고)
-pnpm dev               # http://localhost:3000 (또는 3001)
+pnpm install                                             # 최초 1회
+cp .env.example .env                                     # DATABASE_URL, OPENAI_API_KEY 편집
+# Postgres 최초 한 번만:
+brew install postgresql@16 && brew services start postgresql@16
+createdb hospital_ops_hub
+pnpm --filter @hub/db prisma generate
+pnpm --filter @hub/db prisma migrate dev --name init
+pnpm --filter @hub/db seed
+# 이후 매번:
+pnpm dev                                                 # http://localhost:3000
 ```
+
+이제 모든 데이터가 Postgres 에 저장됩니다. 서버 재시작해도 리뷰/예약/상담/로그가 유지됩니다.
 
 ### 0-1. LLM (GPT) 연결 — 선택이지만 강력 추천
 

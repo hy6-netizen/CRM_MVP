@@ -16,21 +16,28 @@
 ## 빠른 시작
 
 ```bash
+# 1. 의존성
 pnpm install
 cp .env.example .env
+# .env 편집: DATABASE_URL, (선택) OPENAI_API_KEY
 
-# (선택) Postgres + Prisma client 사용 시
+# 2. Postgres 준비 (macOS)
+brew install postgresql@16
+brew services start postgresql@16
+createdb hospital_ops_hub
+
+# 3. Prisma 마이그레이션 + seed
 pnpm --filter @hub/db prisma generate
-pnpm --filter @hub/db migrate     # DB 마이그레이션
-pnpm --filter @hub/db seed        # 초기 사용자/템플릿
+pnpm --filter @hub/db prisma migrate dev --name init
+pnpm --filter @hub/db seed
 
+# 4. 실행
 pnpm dev                          # http://localhost:3000
 pnpm test                         # node:test 기반 smoke + AI 엔진 테스트
 ```
 
-> **DB 없이도 동작합니다.** UI 와 모든 API 는 `apps/web/src/lib/mockStore.ts` 의
-> in-memory 데이터를 사용하므로 `pnpm install && pnpm dev` 만으로 데모가 켜집니다.
-> Postgres 는 실 운영 단계에서 mockStore → Prisma client 로 교체할 때 필요합니다.
+> **Postgres 필수**. 모든 데이터가 DB 에 저장되므로 서버 재시작해도 유지됩니다.
+> Mac Mini 배포 전체 가이드는 [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) 참조.
 
 ---
 

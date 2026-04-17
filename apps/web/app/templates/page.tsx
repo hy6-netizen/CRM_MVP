@@ -1,9 +1,11 @@
 import { TemplatesManager } from "../../src/components/templates/TemplatesManager";
-import { templates } from "../../src/lib/mockStore";
+import { prisma } from "../../src/lib/db";
+import { toTemplateRow } from "../../src/lib/viewAdapters";
 
 export const dynamic = "force-dynamic";
 
-export default function TemplatesPage() {
+export default async function TemplatesPage() {
+  const rows = await prisma.template.findMany({ orderBy: { updatedAt: "desc" } });
   return (
     <div className="space-y-4">
       <div>
@@ -13,7 +15,7 @@ export default function TemplatesPage() {
           strict 등급 템플릿은 컴플라이언스 검사를 강제합니다.
         </p>
       </div>
-      <TemplatesManager initial={templates} />
+      <TemplatesManager initial={rows.map(toTemplateRow)} />
     </div>
   );
 }

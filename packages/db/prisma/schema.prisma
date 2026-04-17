@@ -157,19 +157,23 @@ model PatientContact {
 }
 
 model Conversation {
-  id               String                @id @default(cuid())
-  channel          Channel
-  externalThreadId String?
-  contactId        String?
-  contact          PatientContact?       @relation(fields: [contactId], references: [id])
-  status           ConversationStatus    @default(new)
-  category         ConversationCategory?
-  riskLevel        RiskLevel             @default(low)
-  assigneeId       String?
-  assignee         User?                 @relation("conversationAssignee", fields: [assigneeId], references: [id])
-  lastMessageAt    DateTime              @default(now())
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
+  id                 String                @id @default(cuid())
+  channel            Channel
+  externalThreadId   String?
+  contactId          String?
+  contact            PatientContact?       @relation(fields: [contactId], references: [id])
+  // denormalized contact info — MVP 에선 PatientContact 없어도 동작하도록 직접 저장
+  contactName        String?
+  contactPhoneMasked String?
+  status             ConversationStatus    @default(new)
+  category           ConversationCategory?
+  riskLevel          RiskLevel             @default(low)
+  assigneeId         String?
+  assignee           User?                 @relation("conversationAssignee", fields: [assigneeId], references: [id])
+  lastMessageAt      DateTime              @default(now())
+  lastMessagePreview String?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
 
   messages Message[]
 
@@ -213,23 +217,33 @@ model Reservation {
 }
 
 model Review {
-  id                 String       @id @default(cuid())
-  sourceChannel      Channel      @default(naver_review)
+  id                 String          @id @default(cuid())
+  sourceChannel      Channel         @default(naver_review)
   externalReviewId   String?
   reviewerNameMasked String?
   rating             Int
   content            String
   rawPayloadJson     Json?
-  status             ReviewStatus @default(new)
+  status             ReviewStatus    @default(new)
   sentiment          Sentiment?
-  riskLevel          RiskLevel    @default(low)
+  riskLevel          RiskLevel       @default(low)
   category           ReviewCategory?
   assigneeId         String?
-  assignee           User?        @relation("reviewAssignee", fields: [assigneeId], references: [id])
+  assignee           User?           @relation("reviewAssignee", fields: [assigneeId], references: [id])
   imageUrl           String?
   imageConfidence    Float?
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
+  treatmentMentioned String?
+  staffMentioned     String?
+  // 현재 활성 초안 (가장 최근 것을 inline 저장, 이력은 drafts 테이블)
+  draft              String?
+  draftReasons       Json?
+  approvedDraft      String?
+  complianceStatus   ComplianceStatus?
+  approvedById       String?
+  approvedAt         DateTime?
+  postedAt           DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 
   drafts ReviewReplyDraft[]
 
@@ -278,6 +292,7 @@ model AuditLog {
   id         String   @id @default(cuid())
   actorId    String?
   actor      User?    @relation(fields: [actorId], references: [id])
+  actorName  String?  // actor 가 없는 system 기록 시 표시용
   entityType String
   entityId   String
   action     String
@@ -287,6 +302,21 @@ model AuditLog {
 
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+model Notification {
+  id           String    @id @default(cuid())
+  level        String    // info | warning | critical
+  title        String
+  body         String
+  entityType   String?
+  entityId     String?
+  dismissedAt  DateTime?
+  deliveredVia String?   // alimtalk | stub | in_app_only
+  createdAt    DateTime  @default(now())
+
+  @@index([dismissedAt])
+  @@index([entityType, entityId])
 }
 
 model Job {

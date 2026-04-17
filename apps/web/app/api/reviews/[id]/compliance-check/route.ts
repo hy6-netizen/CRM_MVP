@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { runComplianceCheck as keywordCompliance } from "@hub/ai/src/complianceChecker";
 import { getLLM } from "@hub/ai/src/llm";
 import type { ComplianceResult } from "@hub/domain/src/types";
-import { findReview, recordAudit } from "../../../../../src/lib/mockStore";
+import { prisma } from "../../../../../src/lib/db";
+import { recordAudit } from "../../../../../src/lib/audit";
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const review = findReview(id);
+  const review = await prisma.review.findUnique({ where: { id } });
   if (!review) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
   const body = await req.json().catch(() => ({}));
@@ -30,9 +31,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     }
   }
 
-  review.complianceStatus = compliance.status;
-  review.approvedDraft = compliance.approvedDraft || draft;
-  recordAudit({
+  const updated = await prisma.review.update({
+    where: { id },
+    data: {
+      complianceStatus: compliance.status,
+      approvedDraft: compliance.approvedDraft || draft,
+    },
+  });
+  await recordAudit({
     actorName: "system",
     entityType: "Review",
     entityId: id,
@@ -40,5 +46,5 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     after: { status: compliance.status, issues: compliance.issues.length, checker, usage },
   });
 
-  return NextResponse.json({ compliance, review, meta: { checker, usage } });
+  return NextResponse.json({ compliance, review: updated, meta: { checker, usage } });
 }

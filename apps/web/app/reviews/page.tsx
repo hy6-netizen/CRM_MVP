@@ -1,9 +1,12 @@
 import { ReviewInbox } from "../../src/components/reviews/ReviewInbox";
-import { reviews } from "../../src/lib/mockStore";
+import { prisma } from "../../src/lib/db";
+import { toReviewRow } from "../../src/lib/viewAdapters";
 
 export const dynamic = "force-dynamic";
 
-export default function ReviewsPage() {
+export default async function ReviewsPage() {
+  const rows = await prisma.review.findMany({ orderBy: { createdAt: "desc" }, take: 100 });
+  const reviews = rows.map(toReviewRow);
   return (
     <div className="space-y-4">
       <div>

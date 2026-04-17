@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { runComplianceCheck } from "@hub/ai/src/complianceChecker";
-import { findReview, recordAudit, __mockMeta } from "../../../../../src/lib/mockStore";
+import { prisma } from "../../../../../src/lib/db";
+import { recordAudit } from "../../../../../src/lib/audit";
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const review = findReview(id);
+  const review = await prisma.review.findUnique({ where: { id } });
   if (!review) return NextResponse.json({ error: "not_found" }, { status: 404 });
   const body = await req.json().catch(() => ({}));
   const draft = typeof body.draft === "string" && body.draft.length > 0 ? body.draft : review.approvedDraft || review.draft;
@@ -16,18 +17,23 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   }
 
   const before = { ...review };
-  review.status = "approved";
-  review.approvedDraft = compliance.approvedDraft || draft;
-  review.complianceStatus = compliance.status;
-  review.approvedById = body.actorId || "u_rev";
-  review.approvedAt = __mockMeta.now();
-  recordAudit({
-    actorId: review.approvedById,
+  const updated = await prisma.review.update({
+    where: { id },
+    data: {
+      status: "approved",
+      approvedDraft: compliance.approvedDraft || draft,
+      complianceStatus: compliance.status,
+      approvedById: body.actorId || "u_rev",
+      approvedAt: new Date(),
+    },
+  });
+  await recordAudit({
+    actorId: updated.approvedById ?? undefined,
     entityType: "Review",
     entityId: id,
     action: "review.draft_approved",
     before,
-    after: { status: review.status, approvedDraft: review.approvedDraft },
+    after: { status: updated.status, approvedDraft: updated.approvedDraft },
   });
-  return NextResponse.json({ review, compliance });
+  return NextResponse.json({ review: updated, compliance });
 }

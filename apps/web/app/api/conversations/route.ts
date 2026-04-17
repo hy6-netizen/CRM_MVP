@@ -1,19 +1,18 @@
 import { NextResponse } from "next/server";
-import { conversations, messages } from "../../../src/lib/mockStore";
+import { prisma } from "../../../src/lib/db";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const status = url.searchParams.get("status");
   const channel = url.searchParams.get("channel");
-  let list = [...conversations];
-  if (status) list = list.filter((c) => c.status === status);
-  if (channel) list = list.filter((c) => c.channel === channel);
-  list.sort((a, b) => +new Date(b.lastMessageAt) - +new Date(a.lastMessageAt));
-  return NextResponse.json({
-    items: list.map((c) => ({
-      ...c,
-      messageCount: messages.filter((m) => m.conversationId === c.id).length,
-    })),
-    count: list.length,
+  const items = await prisma.conversation.findMany({
+    where: {
+      ...(status ? { status: status as never } : {}),
+      ...(channel ? { channel: channel as never } : {}),
+    },
+    orderBy: { lastMessageAt: "desc" },
+    take: 200,
+    include: { _count: { select: { messages: true } } },
   });
+  return NextResponse.json({ items, count: items.length });
 }

@@ -1,4 +1,4 @@
-import { auditLogs, findUser } from "../../src/lib/mockStore";
+import { prisma } from "../../src/lib/db";
 import { relativeTime } from "../../src/lib/format";
 import { AccessDenied } from "../../src/components/AccessDenied";
 import { getCurrentRole } from "../../src/lib/role";
@@ -12,7 +12,11 @@ export default async function LogsPage() {
   if (!(REQUIRED as readonly string[]).includes(role)) {
     return <AccessDenied role={role} required={[...REQUIRED]} />;
   }
-  const list = [...auditLogs].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+  const list = await prisma.auditLog.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 500,
+    include: { actor: true },
+  });
   return (
     <div className="space-y-4">
       <div>
@@ -34,18 +38,18 @@ export default async function LogsPage() {
           </thead>
           <tbody>
             {list.map((l) => {
-              const actor = l.actorName ?? findUser(l.actorId)?.name ?? "system";
+              const actor = l.actorName ?? l.actor?.name ?? "system";
               return (
                 <tr key={l.id} className="border-t border-slate-100">
-                  <td className="px-3 py-2 text-xs text-slate-500" title={l.createdAt}>{relativeTime(l.createdAt)}</td>
+                  <td className="px-3 py-2 text-xs text-slate-500" title={l.createdAt.toISOString()}>{relativeTime(l.createdAt.toISOString())}</td>
                   <td className="px-3 py-2 text-xs">{actor}</td>
                   <td className="px-3 py-2 font-mono text-xs">{l.entityType}/{l.entityId}</td>
                   <td className="px-3 py-2 text-xs">{l.action}</td>
                   <td className="px-3 py-2 text-[11px] text-slate-500">
-                    {l.before || l.after ? (
+                    {l.beforeJson || l.afterJson ? (
                       <details>
                         <summary className="cursor-pointer text-brand">자세히</summary>
-                        <pre className="bg-slate-50 p-2 rounded mt-1 text-[10px] overflow-x-auto max-w-md">{JSON.stringify({ before: l.before, after: l.after }, null, 2)}</pre>
+                        <pre className="bg-slate-50 p-2 rounded mt-1 text-[10px] overflow-x-auto max-w-md">{JSON.stringify({ before: l.beforeJson, after: l.afterJson }, null, 2)}</pre>
                       </details>
                     ) : "—"}
                   </td>

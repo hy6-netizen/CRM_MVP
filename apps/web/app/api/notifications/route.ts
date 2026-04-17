@@ -3,5 +3,6 @@ import { openNotifications, runNoShowSweep } from "../../../src/lib/noShowSweep"
 
 export async function GET() {
   await runNoShowSweep();
-  return NextResponse.json({ items: openNotifications() });
+  const items = await openNotifications();
+  return NextResponse.json({ items });
 }

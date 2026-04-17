@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
-import { auditLogs } from "../../../src/lib/mockStore";
+import { prisma } from "../../../src/lib/db";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const entityType = url.searchParams.get("entityType");
-  let list = [...auditLogs];
-  if (entityType) list = list.filter((l) => l.entityType === entityType);
-  list.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
-  return NextResponse.json({ items: list, count: list.length });
+  const items = await prisma.auditLog.findMany({
+    where: entityType ? { entityType } : undefined,
+    orderBy: { createdAt: "desc" },
+    take: 500,
+  });
+  return NextResponse.json({ items, count: items.length });
 }

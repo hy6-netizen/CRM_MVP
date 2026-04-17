@@ -45,3 +45,14 @@ test("Tailwind 설정 존재", async () => {
   const css = await fs.readFile("apps/web/app/globals.css", "utf8");
   assert.ok(css.includes("@tailwind base"));
 });
+
+test("Prisma 연결 기반 설정", async () => {
+  await fs.access("apps/web/src/lib/db.ts");
+  await fs.access("apps/web/src/lib/viewAdapters.ts");
+  await fs.access("apps/web/src/lib/dashboard.ts");
+  const pkg = JSON.parse(await fs.readFile("apps/web/package.json", "utf8"));
+  assert.ok(pkg.dependencies["@prisma/client"], "@prisma/client 의존성 필요");
+  const schema = await fs.readFile("packages/db/prisma/schema.prisma", "utf8");
+  assert.ok(schema.includes("model Notification"), "Notification 모델 필요");
+  assert.ok(schema.includes("contactName") && schema.includes("contactPhoneMasked"), "Conversation denormalized 필드 필요");
+});

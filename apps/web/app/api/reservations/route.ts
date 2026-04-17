@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { recordAudit, reservations, __mockMeta } from "../../../src/lib/mockStore";
-import type { ReservationRow } from "../../../src/lib/mockStore";
+import { prisma } from "../../../src/lib/db";
+import { recordAudit } from "../../../src/lib/audit";
 
 const CreateSchema = z.object({
   patientName: z.string().min(1),
@@ -9,36 +9,22 @@ const CreateSchema = z.object({
   reservationAt: z.string().min(1),
   notes: z.string().optional(),
   sourceChannel: z
-    .enum([
-      "naver_reservation",
-      "naver_talk",
-      "naver_review",
-      "kakao_channel",
-      "kakao_biz",
-      "manual",
-      "unknown",
-    ])
+    .enum(["naver_reservation", "naver_talk", "naver_review", "kakao_channel", "kakao_biz", "manual", "unknown"])
     .default("manual"),
   status: z
-    .enum([
-      "new",
-      "pending_confirmation",
-      "confirmed",
-      "change_requested",
-      "canceled",
-      "no_show_risk",
-      "completed",
-    ])
+    .enum(["new", "pending_confirmation", "confirmed", "change_requested", "canceled", "no_show_risk", "completed"])
     .default("pending_confirmation"),
 });
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const status = url.searchParams.get("status");
-  let list = [...reservations];
-  if (status) list = list.filter((r) => r.status === status);
-  list.sort((a, b) => +new Date(a.reservationAt) - +new Date(b.reservationAt));
-  return NextResponse.json({ items: list, count: list.length });
+  const items = await prisma.reservation.findMany({
+    where: status ? { status: status as never } : undefined,
+    orderBy: { reservationAt: "asc" },
+    take: 500,
+  });
+  return NextResponse.json({ items, count: items.length });
 }
 
 export async function POST(req: Request) {
@@ -46,18 +32,17 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "validation", issues: parsed.error.format() }, { status: 400 });
   }
-  const row: ReservationRow = {
-    id: __mockMeta.nextId("rsv"),
-    sourceChannel: parsed.data.sourceChannel,
-    patientName: parsed.data.patientName,
-    phoneMasked: parsed.data.phoneMasked,
-    reservationAt: parsed.data.reservationAt,
-    status: parsed.data.status,
-    notes: parsed.data.notes,
-    createdAt: __mockMeta.now(),
-  };
-  reservations.unshift(row);
-  recordAudit({
+  const row = await prisma.reservation.create({
+    data: {
+      sourceChannel: parsed.data.sourceChannel as never,
+      patientName: parsed.data.patientName,
+      phoneMasked: parsed.data.phoneMasked,
+      reservationAt: new Date(parsed.data.reservationAt),
+      status: parsed.data.status as never,
+      notes: parsed.data.notes,
+    },
+  });
+  await recordAudit({
     actorName: "operator",
     entityType: "Reservation",
     entityId: row.id,

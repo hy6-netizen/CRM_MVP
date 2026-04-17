@@ -1,10 +1,9 @@
 import Link from "next/link";
-import {
-  buildDashboardSummary,
-  conversations,
-  reservations,
-  reviews,
-} from "../../src/lib/mockStore";
+import { prisma } from "../../src/lib/db";
+import { buildDashboardSummary } from "../../src/lib/dashboard";
+import { openNotifications, runNoShowSweep } from "../../src/lib/noShowSweep";
+import { NoShowAlertBanner } from "../../src/components/NoShowAlertBanner";
+import { toNotificationRow } from "../../src/lib/viewAdapters";
 import {
   CONVERSATION_STATUS_LABEL,
   RESERVATION_STATUS_LABEL,
@@ -15,12 +14,10 @@ import {
   riskBadgeClass,
   riskLabel,
 } from "../../src/lib/format";
-import { openNotifications, runNoShowSweep } from "../../src/lib/noShowSweep";
-import { NoShowAlertBanner } from "../../src/components/NoShowAlertBanner";
 
 export const dynamic = "force-dynamic";
 
-const CARD_DEFS: { key: keyof ReturnType<typeof buildDashboardSummary>; label: string; tone: string; href: string }[] = [
+const CARD_DEFS: { key: keyof Awaited<ReturnType<typeof buildDashboardSummary>>; label: string; tone: string; href: string }[] = [
   { key: "todayReservations", label: "오늘 예약", tone: "text-brand", href: "/reservations" },
   { key: "unconfirmedReservations", label: "미확정 예약", tone: "text-amber-600", href: "/reservations?status=pending_confirmation" },
   { key: "staleReservationsOver30m", label: "30분+ 미처리", tone: "text-red-600", href: "/reservations?status=pending_confirmation" },
@@ -32,23 +29,27 @@ const CARD_DEFS: { key: keyof ReturnType<typeof buildDashboardSummary>; label: s
 ];
 
 export default async function DashboardPage() {
-  // 대시보드 렌더 시점에 20분 경과 예약을 자동으로 no_show_risk 로 전환하고 관리자 알림 발행.
-  // BullMQ 도입 전 임시 cron 대체. idempotent (이미 알림 있는 건은 skip).
+  // 노쇼 감지 idempotent 실행 (BullMQ cron 도입 전 대체)
   await runNoShowSweep();
-  const alerts = openNotifications();
-  const summary = buildDashboardSummary();
-
-  const urgentReviews = reviews
-    .filter((r) => r.riskLevel === "high" && r.status !== "posted" && r.status !== "archived")
-    .slice(0, 5);
-  const pendingReservations = reservations
-    .filter((r) => r.status === "pending_confirmation" || r.status === "new" || r.status === "change_requested")
-    .sort((a, b) => +new Date(a.reservationAt) - +new Date(b.reservationAt))
-    .slice(0, 6);
-  const newConversations = conversations
-    .filter((c) => c.status === "new" || c.status === "in_progress")
-    .sort((a, b) => +new Date(b.lastMessageAt) - +new Date(a.lastMessageAt))
-    .slice(0, 6);
+  const [summary, alerts, urgentReviews, pendingReservations, newConversations] = await Promise.all([
+    buildDashboardSummary(),
+    openNotifications(),
+    prisma.review.findMany({
+      where: { riskLevel: "high", status: { notIn: ["posted", "archived"] } },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    }),
+    prisma.reservation.findMany({
+      where: { status: { in: ["pending_confirmation", "new", "change_requested"] } },
+      orderBy: { reservationAt: "asc" },
+      take: 6,
+    }),
+    prisma.conversation.findMany({
+      where: { status: { in: ["new", "in_progress"] } },
+      orderBy: { lastMessageAt: "desc" },
+      take: 6,
+    }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -61,7 +62,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <NoShowAlertBanner initial={alerts} />
+      <NoShowAlertBanner initial={alerts.map(toNotificationRow)} />
 
       <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {CARD_DEFS.map((c) => (
@@ -88,7 +89,7 @@ export default async function DashboardPage() {
                     <span className={riskBadgeClass(r.riskLevel)}>{riskLabel(r.riskLevel)}</span>
                   </div>
                   <div className="text-sm text-slate-800 line-clamp-2">{r.content}</div>
-                  <div className="text-[10px] text-slate-400 mt-1">{REVIEW_STATUS_LABEL[r.status]} · {relativeTime(r.createdAt)}</div>
+                  <div className="text-[10px] text-slate-400 mt-1">{REVIEW_STATUS_LABEL[r.status]} · {relativeTime(r.createdAt.toISOString())}</div>
                 </Link>
               </li>
             ))}
@@ -106,7 +107,7 @@ export default async function DashboardPage() {
               <li key={r.id} className="py-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-medium text-slate-800">{r.patientName}</span>
-                  <span className="text-slate-500">{formatTime(r.reservationAt)}</span>
+                  <span className="text-slate-500">{formatTime(r.reservationAt.toISOString())}</span>
                 </div>
                 <div className="flex items-center justify-between mt-1">
                   <span className="text-[11px] text-slate-500">{r.notes ?? "-"}</span>
@@ -127,11 +128,11 @@ export default async function DashboardPage() {
             {newConversations.map((c) => (
               <li key={c.id} className="py-2">
                 <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-                  <span>{c.contactName} · {channelLabel(c.channel)}</span>
+                  <span>{c.contactName ?? "-"} · {channelLabel(c.channel)}</span>
                   <span className={riskBadgeClass(c.riskLevel)}>{riskLabel(c.riskLevel)}</span>
                 </div>
                 <div className="text-sm text-slate-800 line-clamp-2">{c.lastMessagePreview}</div>
-                <div className="text-[10px] text-slate-400 mt-1">{CONVERSATION_STATUS_LABEL[c.status]} · {relativeTime(c.lastMessageAt)}</div>
+                <div className="text-[10px] text-slate-400 mt-1">{CONVERSATION_STATUS_LABEL[c.status]} · {relativeTime(c.lastMessageAt.toISOString())}</div>
               </li>
             ))}
           </ul>
