@@ -1,11 +1,26 @@
 // 시간/리스크/상태 라벨 등을 화면에서 표시할 때 쓰는 헬퍼.
 
 import type {
+  Channel,
   ConversationStatus,
   ReservationStatus,
   ReviewStatus,
   RiskLevel,
 } from "@hub/domain/src/types";
+
+export const CHANNEL_LABEL: Record<Channel, string> = {
+  naver_reservation: "네이버 예약",
+  naver_talk: "네이버 톡톡",
+  naver_review: "네이버 리뷰",
+  kakao_channel: "카카오 채널",
+  kakao_biz: "카카오 비즈",
+  manual: "수동 입력",
+  unknown: "미분류",
+};
+
+export function channelLabel(c: Channel | string): string {
+  return (CHANNEL_LABEL as Record<string, string>)[c] ?? c;
+}
 
 export function relativeTime(iso: string): string {
   const t = new Date(iso).getTime();
@@ -48,7 +63,7 @@ export const CONVERSATION_STATUS_LABEL: Record<ConversationStatus, string> = {
   in_progress: "응대 중",
   waiting_patient: "환자 회신 대기",
   resolved: "완료",
-  escalated: "에스컬레이션",
+  escalated: "검토 필요",
   archived: "보관",
 };
 

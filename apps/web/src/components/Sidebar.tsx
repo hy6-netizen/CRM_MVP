@@ -1,9 +1,10 @@
-"use client";
-
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { SidebarLink } from "./SidebarLink";
+import { RoleSwitcher } from "./RoleSwitcher";
+import { canAccess, getCurrentRole } from "../lib/role";
+import type { Role } from "@hub/domain/src/types";
 
-const NAV: { href: string; label: string; group?: string }[] = [
+const NAV: { href: string; label: string; group: "운영" | "설정" }[] = [
   { href: "/dashboard", label: "오늘 보드", group: "운영" },
   { href: "/reservations", label: "예약 보드", group: "운영" },
   { href: "/conversations", label: "상담 인박스", group: "운영" },
@@ -14,9 +15,10 @@ const NAV: { href: string; label: string; group?: string }[] = [
   { href: "/logs", label: "감사 로그", group: "설정" },
 ];
 
-export function Sidebar() {
-  const pathname = usePathname();
-  const groups = Array.from(new Set(NAV.map((n) => n.group ?? "")));
+export async function Sidebar() {
+  const role: Role = await getCurrentRole();
+  const visible = NAV.filter((n) => canAccess(role, n.href));
+  const groups = Array.from(new Set(visible.map((n) => n.group)));
 
   return (
     <aside className="w-60 bg-white border-r border-slate-200 px-3 py-4 hidden md:flex md:flex-col">
@@ -28,29 +30,17 @@ export function Sidebar() {
           <div key={g}>
             <div className="text-[10px] font-semibold text-slate-400 uppercase px-3 mb-1">{g}</div>
             <ul className="space-y-0.5">
-              {NAV.filter((n) => n.group === g).map((n) => {
-                const active = pathname === n.href || pathname?.startsWith(n.href + "/");
-                return (
-                  <li key={n.href}>
-                    <Link
-                      href={n.href}
-                      className={
-                        "block rounded-md px-3 py-1.5 text-sm transition-colors " +
-                        (active
-                          ? "bg-brand-50 text-brand font-semibold"
-                          : "text-slate-700 hover:bg-slate-100")
-                      }
-                    >
-                      {n.label}
-                    </Link>
-                  </li>
-                );
-              })}
+              {visible.filter((n) => n.group === g).map((n) => (
+                <li key={n.href}>
+                  <SidebarLink href={n.href}>{n.label}</SidebarLink>
+                </li>
+              ))}
             </ul>
           </div>
         ))}
       </nav>
-      <div className="px-3 pt-4 mt-auto text-[11px] text-slate-400 border-t border-slate-100">
+      <RoleSwitcher current={role} />
+      <div className="px-3 pt-3 text-[11px] text-slate-400 border-t border-slate-100">
         © 의성한방병원 · 데모
       </div>
     </aside>

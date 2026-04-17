@@ -1,9 +1,17 @@
 import { ComplianceTester } from "../../../src/components/settings/ComplianceTester";
+import { AccessDenied } from "../../../src/components/AccessDenied";
 import { COMPLIANCE_RULE_BOOK } from "@hub/ai/src/complianceChecker";
+import { getCurrentRole } from "../../../src/lib/role";
 
 export const dynamic = "force-dynamic";
 
-export default function CompliancePage() {
+const REQUIRED = ["admin", "manager"] as const;
+
+export default async function CompliancePage() {
+  const role = await getCurrentRole();
+  if (!(REQUIRED as readonly string[]).includes(role)) {
+    return <AccessDenied role={role} required={[...REQUIRED]} />;
+  }
   return (
     <div className="space-y-4">
       <div>

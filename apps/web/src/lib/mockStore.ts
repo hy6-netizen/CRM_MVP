@@ -105,6 +105,18 @@ export interface AuditLogRow {
   createdAt: string;
 }
 
+export interface NotificationRow {
+  id: string;
+  level: "info" | "warning" | "critical";
+  title: string;
+  body: string;
+  entityType?: string;
+  entityId?: string;
+  createdAt: string;
+  dismissedAt?: string;
+  deliveredVia?: "alimtalk" | "stub" | "in_app_only";
+}
+
 const now = () => new Date().toISOString();
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
 const hoursAgo = (h: number) => minutesAgo(h * 60);
@@ -150,7 +162,7 @@ export const messages: MessageRow[] = [
   { id: "m_2", conversationId: "cv_2", direction: "inbound", content: "내일 오후 시간으로 변경 가능할까요?", createdAt: minutesAgo(20) },
   { id: "m_3", conversationId: "cv_2", direction: "outbound", content: "네 가능합니다. 오후 2시 / 4시 중 선택 부탁드립니다.", createdAt: minutesAgo(15) },
   { id: "m_4", conversationId: "cv_5", direction: "inbound", content: "치료 후 통증이 더 심해진 것 같습니다. 환불 가능한가요?", createdAt: hoursAgo(1) },
-  { id: "m_5", conversationId: "cv_5", direction: "system", content: "민감 키워드(악화, 환불) 감지 → 매니저 에스컬레이션", createdAt: hoursAgo(1) },
+  { id: "m_5", conversationId: "cv_5", direction: "system", content: "민감 키워드(악화, 환불) 감지 → 관리자 검토 필요", createdAt: hoursAgo(1) },
   { id: "m_6", conversationId: "cv_6", direction: "inbound", content: "디스크 진단을 받았는데 한방치료가 도움될까요?", createdAt: minutesAgo(20) },
 ];
 
@@ -235,6 +247,9 @@ export const templates: TemplateRow[] = [
   { id: "tpl_rev_neg", code: "REVIEW_NEGATIVE_FIRST_RESPONSE", channel: "naver_review", intent: "부정-1차응대", title: "리뷰 답글(부정·1차)", body: "안녕하세요~ 의성한방병원입니다. 불편을 드린 점에 대해 죄송한 마음입니다. 남겨주신 말씀을 원내에서 신중히 확인하고, 별도 연락드리도록 하겠습니다. 감사합니다~^^", enabled: true, requiresHumanReview: true, complianceLevel: "strict", updatedAt: hoursAgo(8) },
 ];
 
+// ─────────── 알림 ───────────
+export const notifications: NotificationRow[] = [];
+
 // ─────────── 감사로그 ───────────
 export const auditLogs: AuditLogRow[] = [
   { id: "log_1", actorId: "u_rev", actorName: "최리뷰", entityType: "Review", entityId: "rv_5", action: "draft.approved", createdAt: hoursAgo(10) },
@@ -290,4 +305,15 @@ export function recordAudit(entry: Omit<AuditLogRow, "id" | "createdAt">) {
   auditLogs.unshift(row);
   return row;
 }
+
+export function addNotification(entry: Omit<NotificationRow, "id" | "createdAt">) {
+  const row: NotificationRow = { ...entry, id: nextId("nt"), createdAt: now() };
+  notifications.unshift(row);
+  return row;
+}
+
+export function findNotification(id: string) {
+  return notifications.find((n) => n.id === id);
+}
+
 export const __mockMeta = { nextId, now };

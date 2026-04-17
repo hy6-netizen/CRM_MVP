@@ -1,9 +1,17 @@
 import { auditLogs, findUser } from "../../src/lib/mockStore";
 import { relativeTime } from "../../src/lib/format";
+import { AccessDenied } from "../../src/components/AccessDenied";
+import { getCurrentRole } from "../../src/lib/role";
 
 export const dynamic = "force-dynamic";
 
-export default function LogsPage() {
+const REQUIRED = ["admin", "manager"] as const;
+
+export default async function LogsPage() {
+  const role = await getCurrentRole();
+  if (!(REQUIRED as readonly string[]).includes(role)) {
+    return <AccessDenied role={role} required={[...REQUIRED]} />;
+  }
   const list = [...auditLogs].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
   return (
     <div className="space-y-4">

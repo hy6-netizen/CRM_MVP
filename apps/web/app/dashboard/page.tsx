@@ -9,11 +9,14 @@ import {
   CONVERSATION_STATUS_LABEL,
   RESERVATION_STATUS_LABEL,
   REVIEW_STATUS_LABEL,
+  channelLabel,
   formatTime,
   relativeTime,
   riskBadgeClass,
   riskLabel,
 } from "../../src/lib/format";
+import { openNotifications, runNoShowSweep } from "../../src/lib/noShowSweep";
+import { NoShowAlertBanner } from "../../src/components/NoShowAlertBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +31,11 @@ const CARD_DEFS: { key: keyof ReturnType<typeof buildDashboardSummary>; label: s
   { key: "sensitiveIssues", label: "민감 이슈", tone: "text-red-600", href: "/reviews?risk=high" },
 ];
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  // 대시보드 렌더 시점에 20분 경과 예약을 자동으로 no_show_risk 로 전환하고 관리자 알림 발행.
+  // BullMQ 도입 전 임시 cron 대체. idempotent (이미 알림 있는 건은 skip).
+  await runNoShowSweep();
+  const alerts = openNotifications();
   const summary = buildDashboardSummary();
 
   const urgentReviews = reviews
@@ -53,6 +60,8 @@ export default function DashboardPage() {
           </p>
         </div>
       </div>
+
+      <NoShowAlertBanner initial={alerts} />
 
       <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {CARD_DEFS.map((c) => (
@@ -118,7 +127,7 @@ export default function DashboardPage() {
             {newConversations.map((c) => (
               <li key={c.id} className="py-2">
                 <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-                  <span>{c.contactName} · {c.channel}</span>
+                  <span>{c.contactName} · {channelLabel(c.channel)}</span>
                   <span className={riskBadgeClass(c.riskLevel)}>{riskLabel(c.riskLevel)}</span>
                 </div>
                 <div className="text-sm text-slate-800 line-clamp-2">{c.lastMessagePreview}</div>

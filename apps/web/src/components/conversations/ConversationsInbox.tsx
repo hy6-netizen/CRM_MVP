@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import type { ConversationRow, MessageRow } from "../../lib/mockStore";
 import {
   CONVERSATION_STATUS_LABEL,
+  channelLabel,
   relativeTime,
   riskBadgeClass,
   riskLabel,
@@ -16,7 +17,7 @@ const STATUS_FILTERS: { key: "all" | ConversationStatus; label: string }[] = [
   { key: "in_progress", label: "응대 중" },
   { key: "waiting_patient", label: "환자 회신 대기" },
   { key: "resolved", label: "완료" },
-  { key: "escalated", label: "에스컬레이션" },
+  { key: "escalated", label: "검토 필요" },
 ];
 
 const CHANNEL_FILTERS: { key: "all" | Channel; label: string }[] = [
@@ -24,7 +25,7 @@ const CHANNEL_FILTERS: { key: "all" | Channel; label: string }[] = [
   { key: "naver_talk", label: "네이버 톡톡" },
   { key: "kakao_channel", label: "카카오 채널" },
   { key: "kakao_biz", label: "카카오 비즈" },
-  { key: "manual", label: "수동" },
+  { key: "manual", label: "수동 입력" },
 ];
 
 export function ConversationsInbox({ initial, initialMessages }: { initial: ConversationRow[]; initialMessages: MessageRow[] }) {
@@ -94,7 +95,7 @@ export function ConversationsInbox({ initial, initialMessages }: { initial: Conv
                 </div>
                 <div className="text-sm text-slate-800 line-clamp-2">{c.lastMessagePreview}</div>
                 <div className="flex items-center justify-between mt-1 text-[10px] text-slate-400">
-                  <span>{c.channel} {c.category ? `· ${c.category}` : ""}</span>
+                  <span>{channelLabel(c.channel)} {c.category ? `· ${c.category}` : ""}</span>
                   <span>{relativeTime(c.lastMessageAt)}</span>
                 </div>
               </button>
@@ -112,7 +113,7 @@ export function ConversationsInbox({ initial, initialMessages }: { initial: Conv
               <div>
                 <div className="text-base font-semibold">{selected.contactName} <span className="text-xs text-slate-400 font-normal">{selected.phoneMasked}</span></div>
                 <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
-                  <span className="badge-neutral">{selected.channel}</span>
+                  <span className="badge-neutral">{channelLabel(selected.channel)}</span>
                   {selected.category && <span className="badge-neutral">{selected.category}</span>}
                   <span className={riskBadgeClass(selected.riskLevel)}>{riskLabel(selected.riskLevel)}</span>
                   <span className="badge-neutral">{CONVERSATION_STATUS_LABEL[selected.status]}</span>

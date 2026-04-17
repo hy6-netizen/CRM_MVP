@@ -1,4 +1,9 @@
+import { AccessDenied } from "../../../src/components/AccessDenied";
+import { getCurrentRole } from "../../../src/lib/role";
+
 export const dynamic = "force-dynamic";
+
+const REQUIRED = ["admin"] as const;
 
 interface ProviderInfo {
   name: string;
@@ -71,7 +76,11 @@ const STATUS_LABEL: Record<ProviderInfo["capabilities"][number]["status"], strin
   tbd: "검토 필요",
 };
 
-export default function IntegrationsPage() {
+export default async function IntegrationsPage() {
+  const role = await getCurrentRole();
+  if (!(REQUIRED as readonly string[]).includes(role)) {
+    return <AccessDenied role={role} required={[...REQUIRED]} />;
+  }
   return (
     <div className="space-y-4">
       <div>

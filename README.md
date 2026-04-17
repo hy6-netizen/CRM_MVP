@@ -6,6 +6,7 @@
 
 > - **사용 매뉴얼**: [`docs/USER_MANUAL.md`](./docs/USER_MANUAL.md)
 > - **실 API 연동 로드맵**: [`docs/INTEGRATION_ROADMAP.md`](./docs/INTEGRATION_ROADMAP.md)
+> - **보안 가이드 (배포 전 필독)**: [`docs/SECURITY.md`](./docs/SECURITY.md)
 > - **제품/운영 설계**: [`docs_PRODUCT_AND_OPERATIONS.md`](./docs_PRODUCT_AND_OPERATIONS.md)
 
 ---

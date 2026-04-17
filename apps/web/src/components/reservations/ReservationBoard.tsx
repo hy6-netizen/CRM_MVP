@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { ReservationRow } from "../../lib/mockStore";
-import { RESERVATION_STATUS_LABEL, formatDateTime, relativeTime } from "../../lib/format";
+import { RESERVATION_STATUS_LABEL, channelLabel, formatDateTime, relativeTime } from "../../lib/format";
 import type { ReservationStatus } from "@hub/domain/src/types";
 
 const COLUMNS: ReservationStatus[] = [
@@ -47,7 +47,7 @@ export function ReservationBoard({ initial }: { initial: ReservationRow[] }) {
                     <span className="font-medium text-slate-700">{r.patientName}</span>
                     <span>{formatDateTime(r.reservationAt)}</span>
                   </div>
-                  <div className="text-[11px] text-slate-500">{r.phoneMasked} · {r.sourceChannel}</div>
+                  <div className="text-[11px] text-slate-500">{r.phoneMasked} · {channelLabel(r.sourceChannel)}</div>
                   {r.notes && <div className="text-xs text-slate-700 mt-1">{r.notes}</div>}
                   <div className="flex items-center justify-between mt-2 text-[10px] text-slate-400">
                     <span>등록 {relativeTime(r.createdAt)}</span>
