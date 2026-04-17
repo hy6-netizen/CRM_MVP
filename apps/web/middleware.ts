@@ -8,6 +8,7 @@ export default auth((req) => {
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/health") ||
     pathname.startsWith("/api/webhooks") ||
+    pathname.startsWith("/api/ingest") ||
     pathname === "/login" ||
     pathname === "/favicon.ico" ||
     pathname.startsWith("/_next");
