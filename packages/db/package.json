@@ -6,7 +6,8 @@
     "prisma": "dotenv -e ../../.env -- prisma",
     "generate": "dotenv -e ../../.env -- prisma generate",
     "migrate": "dotenv -e ../../.env -- prisma migrate dev",
-    "seed": "dotenv -e ../../.env -- tsx prisma/seed.ts"
+    "seed": "dotenv -e ../../.env -- tsx prisma/seed.ts",
+    "import:naver-reviews": "dotenv -e ../../.env -- tsx scripts/import-naver-reviews.ts"
   },
   "devDependencies": {
     "prisma": "5.22.0",

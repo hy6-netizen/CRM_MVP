@@ -58,6 +58,16 @@ test("Prisma 연결 기반 설정", async () => {
   assert.ok(schema.includes("passwordHash"), "User.passwordHash 필드 필요");
 });
 
+test("네이버 리뷰 배치 import — ai-system 연동 스크립트", async () => {
+  await fs.access("packages/db/scripts/import-naver-reviews.ts");
+  await fs.access("scripts/sync-naver-reviews.sh");
+  const pkg = JSON.parse(await fs.readFile("packages/db/package.json", "utf8"));
+  assert.ok(pkg.scripts["import:naver-reviews"], "import:naver-reviews 스크립트 필요");
+  const code = await fs.readFile("packages/db/scripts/import-naver-reviews.ts", "utf8");
+  assert.ok(code.includes("externalReviewId"), "dedupe 용 externalReviewId 생성 필요");
+  assert.ok(code.includes("sha1"), "sha1 해시로 안정적 dedupe");
+});
+
 test("네이버 리뷰 이미지 OCR — Vision 라우트 + 버튼", async () => {
   await fs.access("apps/web/app/api/reviews/extract-image/route.ts");
   await fs.access("apps/web/src/components/reviews/ImageImportButton.tsx");

@@ -347,6 +347,36 @@ system prompt: "한국 네이버 리뷰 캡처입니다. 별점, 작성자, 본�
 
 ---
 
+## 단계 7a · 네이버 리뷰 배치 수집 (ai-system 연동) ✅ **구현 완료**
+
+ai-system (`/Users/minions/dev/ai-system`) 의 Playwright 크롤러가 수집한 JSON을
+CRM_MVP DB 로 upsert 하는 파이프라인.
+
+**한 번에 실행:**
+```bash
+./scripts/sync-naver-reviews.sh
+```
+(크롤러 → import 순차 실행. `NAVER_PLACE_ID` / `REVIEW_COUNT` env 로 제어)
+
+**import 만:**
+```bash
+pnpm --filter @hub/db import:naver-reviews
+# 기본: /Users/minions/dev/ai-system/data/reviews/naver_place_*.json
+pnpm --filter @hub/db import:naver-reviews -- --file /path/to/single.json
+```
+
+**동작:**
+- dedupe: `externalReviewId = sha1(reviewer || content)` 로 재실행 시 중복 skip
+- rating null → 기본 5 (UI 에서 수정)
+- rating ≤ 3 → riskLevel=high 자동 부여
+- reviewer "anonymous" → "익명" 으로 마스킹
+
+**원칙:**
+크롤러는 **보조 배치 도구** — 운영자 수동 트리거만. 자동 cron 기본 off.
+이미지 OCR(1차) + 크롤러(주간 일괄) 병행으로 운영.
+
+---
+
 ## 단계 7 · 네이버 예약 CSV 임포트
 
 **목표:** 네이버 스마트플레이스에서 주 1회 예약 목록 CSV export → 업로드 → 일괄 생성.
