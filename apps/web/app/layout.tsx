@@ -1,7 +1,7 @@
 import "./globals.css";
 import type { ReactNode } from "react";
 import { Sidebar } from "../src/components/Sidebar";
-import { getCurrentRole, ROLE_LABEL } from "../src/lib/role";
+import { getCurrentRole, getCurrentUser, ROLE_LABEL } from "../src/lib/role";
 
 export const metadata = {
   title: "Hospital Ops Hub",
@@ -9,6 +9,15 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
+  const user = await getCurrentUser();
+  if (!user) {
+    // 로그인 전 (= /login). Sidebar/헤더 없이 children 만 렌더.
+    return (
+      <html lang="ko">
+        <body className="min-h-screen bg-slate-50">{children}</body>
+      </html>
+    );
+  }
   const role = await getCurrentRole();
   return (
     <html lang="ko">
@@ -28,7 +37,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               </div>
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 <span className="badge-neutral">MVP · v0.1</span>
-                <span>{ROLE_LABEL[role]} 모드</span>
+                <span>{ROLE_LABEL[role]}</span>
               </div>
             </header>
             <main className="flex-1 p-6">{children}</main>

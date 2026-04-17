@@ -55,4 +55,19 @@ test("Prisma 연결 기반 설정", async () => {
   const schema = await fs.readFile("packages/db/prisma/schema.prisma", "utf8");
   assert.ok(schema.includes("model Notification"), "Notification 모델 필요");
   assert.ok(schema.includes("contactName") && schema.includes("contactPhoneMasked"), "Conversation denormalized 필드 필요");
+  assert.ok(schema.includes("passwordHash"), "User.passwordHash 필드 필요");
+});
+
+test("NextAuth 로그인 구성", async () => {
+  await fs.access("apps/web/src/lib/auth.ts");
+  await fs.access("apps/web/app/api/auth/[...nextauth]/route.ts");
+  await fs.access("apps/web/middleware.ts");
+  await fs.access("apps/web/app/login/page.tsx");
+  await fs.access("apps/web/src/components/LoginForm.tsx");
+  const pkg = JSON.parse(await fs.readFile("apps/web/package.json", "utf8"));
+  assert.ok(pkg.dependencies["next-auth"], "next-auth 의존성 필요");
+  assert.ok(pkg.dependencies["bcryptjs"], "bcryptjs 의존성 필요");
+  const mw = await fs.readFile("apps/web/middleware.ts", "utf8");
+  assert.ok(mw.includes("/login"), "로그인 리다이렉트 경로 필요");
+  assert.ok(mw.includes("/api/webhooks"), "웹훅 엔드포인트는 인증 제외해야 함");
 });

@@ -60,8 +60,16 @@ OPENAI_API_KEY=sk-...        # OpenAI API key
 | `/logs` | 감사 로그 | ✅ | ✅ | — | — |
 
 - 왼쪽 사이드바는 **현재 역할이 접근 가능한 메뉴만** 표시합니다.
-- 사이드바 하단에 **역할 전환 드롭다운** (데모용) 이 있습니다. 실제로는 로그인 시 자동 결정.
-- 첫 접속 시 `/` 는 자동으로 `/dashboard` 로 리다이렉트됩니다.
+- 로그인 이메일/비밀번호로 역할이 결정됩니다. 사이드바 하단에 현재 사용자 + "로그아웃" 버튼.
+- 첫 접속 시 로그인 페이지(`/login`)로 이동. 로그인 후 `/dashboard`.
+
+### seed 기본 계정 (로컬 개발용 — 배포 전 반드시 변경)
+| 이메일 | 비밀번호 | 역할 |
+|---|---|---|
+| admin@uskmh.kr | admin1234 | admin |
+| mgr@uskmh.kr | manager1234 | manager |
+| staff1@uskmh.kr | staff1234 | staff |
+| rev@uskmh.kr | reviewer1234 | reviewer |
 
 ---
 

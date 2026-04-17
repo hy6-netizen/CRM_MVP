@@ -136,9 +136,29 @@ OPENAI_API_KEY=sk-...
 
 ---
 
-## 단계 3 · NextAuth + RBAC
+## 단계 3 · NextAuth + RBAC ✅ **구현 완료**
 
-**목표:** 로그인 필수. admin/manager/staff/reviewer 권한 분기.
+credentials provider + JWT session + middleware 기반.
+
+**동작:**
+- 미인증 접근 시 `/login` 으로 리다이렉트 (middleware)
+- 로그인 시 이메일/비밀번호(bcrypt 검증) → JWT 세션에 `role` 포함
+- `getCurrentRole()` / `getCurrentUser()` 가 session 에서 역할 조회
+- 사이드바 메뉴는 역할별로 자동 필터, 설정/로그 페이지 서버측 게이트 동시 적용
+
+**seed 기본 계정** (배포 전 변경 필수):
+- admin@uskmh.kr / admin1234 (admin)
+- mgr@uskmh.kr / manager1234 (manager)
+- staff1@uskmh.kr / staff1234 (staff)
+- rev@uskmh.kr / reviewer1234 (reviewer)
+
+**배포 전 체크:**
+- [ ] `AUTH_SECRET` 을 강력한 랜덤 값으로 교체
+- [ ] seed 기본 비밀번호 전부 교체 또는 삭제
+- [ ] 관리자 계정 2FA 도입 (단계 외, SECURITY.md §2-1 참조)
+- [ ] 로그인 실패 rate limit / 계정 잠금 (TODO)
+
+**기존 legacy:**
 
 ### 3-1. 설치
 ```bash

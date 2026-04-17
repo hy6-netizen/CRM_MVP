@@ -9,8 +9,18 @@
 // 이 seed 는 idempotent — 여러 번 실행해도 안전. upsert 기반.
 
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
+
+// 초기 비밀번호 — 배포 전 반드시 변경!
+const DEFAULT_PASSWORDS: Record<string, string> = {
+  "admin@uskmh.kr": "admin1234",
+  "mgr@uskmh.kr": "manager1234",
+  "staff1@uskmh.kr": "staff1234",
+  "staff2@uskmh.kr": "staff1234",
+  "rev@uskmh.kr": "reviewer1234",
+};
 
 const now = new Date();
 const minutesAgo = (m: number) => new Date(now.getTime() - m * 60_000);
@@ -21,34 +31,23 @@ async function main() {
   console.log("[seed] 시작");
 
   // ─── Users ───
+  async function upsertUser(id: string, name: string, email: string, role: string) {
+    const pw = DEFAULT_PASSWORDS[email];
+    const passwordHash = pw ? await bcrypt.hash(pw, 10) : null;
+    return prisma.user.upsert({
+      where: { email },
+      update: { passwordHash: passwordHash ?? undefined },
+      create: { id, name, email, role: role as never, passwordHash },
+    });
+  }
   const users = await Promise.all([
-    prisma.user.upsert({
-      where: { email: "admin@uskmh.kr" },
-      update: {},
-      create: { id: "u_admin", name: "원장", email: "admin@uskmh.kr", role: "admin" },
-    }),
-    prisma.user.upsert({
-      where: { email: "mgr@uskmh.kr" },
-      update: {},
-      create: { id: "u_mgr", name: "이매니저", email: "mgr@uskmh.kr", role: "manager" },
-    }),
-    prisma.user.upsert({
-      where: { email: "staff1@uskmh.kr" },
-      update: {},
-      create: { id: "u_staff1", name: "박상담", email: "staff1@uskmh.kr", role: "staff" },
-    }),
-    prisma.user.upsert({
-      where: { email: "staff2@uskmh.kr" },
-      update: {},
-      create: { id: "u_staff2", name: "정데스크", email: "staff2@uskmh.kr", role: "staff" },
-    }),
-    prisma.user.upsert({
-      where: { email: "rev@uskmh.kr" },
-      update: {},
-      create: { id: "u_rev", name: "최리뷰", email: "rev@uskmh.kr", role: "reviewer" },
-    }),
+    upsertUser("u_admin", "원장", "admin@uskmh.kr", "admin"),
+    upsertUser("u_mgr", "이매니저", "mgr@uskmh.kr", "manager"),
+    upsertUser("u_staff1", "박상담", "staff1@uskmh.kr", "staff"),
+    upsertUser("u_staff2", "정데스크", "staff2@uskmh.kr", "staff"),
+    upsertUser("u_rev", "최리뷰", "rev@uskmh.kr", "reviewer"),
   ]);
-  console.log(`[seed] users: ${users.length}`);
+  console.log(`[seed] users: ${users.length} (basic password set — 배포 전 변경 필수)`);
 
   // ─── Templates ───
   const templates: { code: string; channel: string; intent: string; title: string; body: string; enabled: boolean; requiresHumanReview: boolean; complianceLevel: string }[] = [

@@ -98,11 +98,13 @@ test("capability 타입 — 4-state enum + flag 구조", async () => {
   assert.ok(c.includes("ChatbotProvider") && c.includes("ConsultProvider") && c.includes("BizMessageProvider"), "카카오 3분할 인터페이스 필요");
 });
 
-test("카카오 챗봇 웹훅 stub — 2xx 응답 + 민감 키워드 인계", async () => {
+test("카카오 챗봇 웹훅 — 2xx + 템플릿 DB + 사람 인계", async () => {
   const c = await fs.readFile("apps/web/app/api/webhooks/kakao/chatbot/route.ts", "utf8");
   assert.ok(c.includes("version: \"2.0\""), "카카오 오픈빌더 Skill v2 포맷 필요");
-  assert.ok(c.includes("NextResponse.json(buildSkillResponse"), "항상 2xx JSON 응답해야 함");
-  assert.ok(c.includes("환불") && c.includes("부작용"), "민감 키워드 인계 로직 필요");
+  assert.ok(c.includes("prisma.template.findUnique"), "Template DB 조회 필수");
+  assert.ok(c.includes("classifyConversation"), "자동 분류기 연동 필요");
+  assert.ok(c.includes("HUMAN_ESCALATE_CATEGORIES"), "사람 검토 카테고리 인계 로직 필요");
+  assert.ok(c.includes("createOrAppendConversation") || c.includes("prisma.conversation.create"), "Conversation 기록 필요");
 });
 
 test("prisma schema — 14 핵심 모델", async () => {

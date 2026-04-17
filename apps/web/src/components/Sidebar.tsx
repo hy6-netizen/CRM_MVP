@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { SidebarLink } from "./SidebarLink";
-import { RoleSwitcher } from "./RoleSwitcher";
-import { canAccess, getCurrentRole } from "../lib/role";
+import { SidebarFooter } from "./SidebarFooter";
+import { canAccess, getCurrentRole, getCurrentUser, ROLE_LABEL } from "../lib/role";
 import type { Role } from "@hub/domain/src/types";
 
 const NAV: { href: string; label: string; group: "운영" | "설정" }[] = [
@@ -17,6 +17,7 @@ const NAV: { href: string; label: string; group: "운영" | "설정" }[] = [
 
 export async function Sidebar() {
   const role: Role = await getCurrentRole();
+  const user = await getCurrentUser();
   const visible = NAV.filter((n) => canAccess(role, n.href));
   const groups = Array.from(new Set(visible.map((n) => n.group)));
 
@@ -39,10 +40,7 @@ export async function Sidebar() {
           </div>
         ))}
       </nav>
-      <RoleSwitcher current={role} />
-      <div className="px-3 pt-3 text-[11px] text-slate-400 border-t border-slate-100">
-        © 의성한방병원 · 데모
-      </div>
+      <SidebarFooter user={user ? { name: user.name ?? "-", email: user.email ?? "-", role: ROLE_LABEL[role] } : null} />
     </aside>
   );
 }
