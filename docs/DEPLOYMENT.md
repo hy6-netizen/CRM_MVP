@@ -256,7 +256,56 @@ ollama pull qwen2.5:72b            # 48GB, 한국어 최상급 로컬 모델
 
 ---
 
-## 6. 백업
+## 6. Gmail 자동 폴링 (네이버 예약 이메일 수신)
+
+네이버 예약 알림 이메일을 받는 Gmail 연결 후, 주기적으로 폴링해서 예약을 자동 수집.
+
+### 6-1. Google Cloud 세팅 (최초 1회)
+1. https://console.cloud.google.com → 프로젝트 생성
+2. "API 및 서비스" → 라이브러리 → **Gmail API 사용 설정**
+3. "OAuth 동의 화면" → 외부 → 앱 이름/지원 이메일 입력 → 테스트 사용자에 본인 Gmail 추가
+4. "사용자 인증 정보" → "OAuth 클라이언트 ID" → **웹 애플리케이션**
+   - 승인된 리디렉션 URI: `http://localhost:3001/api/integrations/gmail/callback`
+     (프로덕션 배포 시 도메인으로 변경: `https://hospital-ops.example.com/...`)
+5. `.env` 에 Client ID / Secret 입력
+
+### 6-2. 앱에서 연결
+1. `/settings/integrations/gmail` 접속 (admin 권한)
+2. "Gmail 연결" → Google 로그인 → 읽기 권한 동의
+3. 연결 완료 후 "지금 폴링" 버튼으로 수동 테스트
+
+### 6-3. 자동 주기 폴링 (launchd)
+5분마다 폴링 엔드포인트 호출:
+
+```bash
+# CRON_SECRET 을 .env 에 설정 + 서버 재시작
+echo "CRON_SECRET=$(openssl rand -hex 24)" >> /Users/minions/CRM_MVP_repo/.env
+
+# 템플릿을 복사해서 USERNAME / APP_URL / CRON_SECRET 치환
+cp scripts/launchd/com.uskmh.gmail-poll.plist.template \
+   ~/Library/LaunchAgents/com.uskmh.gmail-poll.plist
+
+# vim / nano 로 편집:
+#   USERNAME → minions
+#   APP_URL  → http://localhost:3001 (또는 Cloudflare Tunnel URL)
+#   REPLACE_WITH_CRON_SECRET → .env 의 CRON_SECRET 값
+
+# 로드
+launchctl load ~/Library/LaunchAgents/com.uskmh.gmail-poll.plist
+launchctl list | grep com.uskmh.gmail-poll
+
+# 로그
+tail -f ~/Library/Logs/hub-gmail-poll.log
+```
+
+### 6-4. Gmail API 비용
+- Gmail API 는 **무료** (하루 10억 unit 한도)
+- 1분 폴링 시 하루 ~10,000 unit 사용 (한도의 0.001%)
+- 실 환자 예약 100건/일 기준으로도 한도 여유 많음
+
+---
+
+## 7. 백업
 
 Postgres 일일 백업 (`launchd` + cron 비슷):
 `~/bin/hub-backup.sh`:

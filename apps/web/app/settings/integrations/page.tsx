@@ -143,6 +143,18 @@ export default async function IntegrationsPage() {
         ))}
       </div>
 
+      <div className="card border-brand/40">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-slate-800">📧 Gmail 연결 (네이버 예약 이메일 자동 수신)</h3>
+            <p className="text-xs text-slate-500 mt-1">
+              네이버 예약 알림 이메일을 받는 Gmail 을 연결하면 새 예약이 자동으로 예약 보드에 올라옵니다.
+            </p>
+          </div>
+          <a href="/settings/integrations/gmail" className="btn-primary">설정하기 →</a>
+        </div>
+      </div>
+
       <div className="card bg-slate-50 border-slate-200">
         <h3 className="font-semibold text-sm text-slate-700 mb-2">운영 원칙</h3>
         <ul className="text-xs text-slate-600 space-y-1 list-disc pl-4">
