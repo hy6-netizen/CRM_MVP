@@ -77,6 +77,7 @@ export async function pollOne(accountId: string): Promise<PollResult> {
           });
           result.updated++;
         } else {
+          // 신규 네이버 예약은 "신규(new)" 컬럼으로. 관리자가 확인 후 "확정 완료"로 이동.
           const created = await prisma.reservation.create({
             data: {
               sourceChannel: "naver_reservation",
@@ -84,7 +85,7 @@ export async function pollOne(accountId: string): Promise<PollResult> {
               patientName: parsed.patientName,
               phoneMasked: "-",
               reservationAt: parsed.reservationAt,
-              status: "pending_confirmation",
+              status: "new",
               notes,
             },
           });

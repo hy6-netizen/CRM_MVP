@@ -134,6 +134,7 @@ export async function POST(req: Request) {
   }
 
   // Reservation upsert
+  // 새로 들어오는 네이버 예약은 "신규(new)" 상태로 — 관리자가 수동 확인 후 "확정 완료" 로 이동.
   const existing = await prisma.reservation.findFirst({ where: { externalReservationId: parsed.externalReservationId } });
   const dataCommon = {
     sourceChannel: "naver_reservation" as const,
@@ -144,7 +145,7 @@ export async function POST(req: Request) {
     notes: [parsed.productName && `상품: ${parsed.productName}`, parsed.requests && `요청: ${parsed.requests}`]
       .filter(Boolean)
       .join(" · ") || undefined,
-    status: "pending_confirmation" as const,
+    status: "new" as const,
   };
 
   let reservation;
