@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import type { Role } from "@hub/domain/src/types";
-import { ROLE_LABEL, ROLES } from "../lib/role";
+import { ROLE_LABEL, ROLES } from "../lib/roleShared";
 
 export function RoleSwitcher({ current }: { current: Role }) {
   const router = useRouter();

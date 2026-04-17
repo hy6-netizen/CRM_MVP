@@ -1,5 +1,5 @@
 import type { Role } from "@hub/domain/src/types";
-import { ROLE_LABEL } from "../lib/role";
+import { ROLE_LABEL } from "../lib/roleShared";
 
 export function AccessDenied({ role, required }: { role: Role; required: Role[] }) {
   return (
