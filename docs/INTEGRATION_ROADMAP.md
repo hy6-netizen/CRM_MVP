@@ -9,17 +9,23 @@ MVP 는 mock store + 결정형 엔진만으로 동작합니다.
 
 ## 단계 표 (우선순위 순)
 
+> **카카오는 3갈래로 분리됨** — 상담톡(실시간 상담), 챗봇(FAQ 자동응답), 비즈메시지(알림톡)은 서로 다른 계약/기술 track 이라 단계를 따로 둠.
+
 | # | 단계 | 필요 시간 | 필요 계정/키 | 로컬 테스트 가능? |
 |---|---|---|---|---|
 | 1 | Postgres + Prisma 붙이기 | 1~2시간 | Docker 또는 Postgres.app | ✅ |
-| 2 | LLM 엔진 연결 (OpenAI/Anthropic) | 2~3시간 | OpenAI 또는 Anthropic API key | ✅ |
+| 2 | LLM 엔진 연결 (OpenAI) | 2~3시간 | OpenAI API key | ✅ **완료** |
 | 3 | NextAuth + 로그인 | 2~3시간 | (선택) Google OAuth | ✅ |
-| 4 | 카카오 알림톡 발송 | 4~6시간 | 비즈메시지 발송대행사 계약 | ⚠️ sandbox |
+| 4a | 카카오 **챗봇** FAQ 자동응답 | 4~6시간 | 카카오 i 오픈빌더 + HTTPS 엔드포인트 | ⚠️ ngrok 또는 Cloudflare Tunnel |
+| 4b | 카카오 **비즈메시지** (알림톡/친구톡) | 4~6시간 | 발송대행사 계약 + 템플릿 승인 | ⚠️ sandbox |
+| 4c | 카카오 **상담톡** (실시간 양방향) | ? | 상담톡 대행사(딜러사) 계약 | ❌ 대행사 선행 |
 | 5 | BullMQ worker (배치/리마인드) | 3~4시간 | Redis (Docker) | ✅ |
 | 6 | 이미지 OCR (리뷰 캡처) | 3~4시간 | OpenAI Vision 또는 Google Vision | ✅ |
 | 7 | 네이버 예약 CSV 임포트 | 2시간 | 네이버 스마트플레이스 export | ✅ |
-| 8 | 카카오 채널 챗봇 웹훅 | 6~8시간 | 카카오 i 오픈빌더 | ⚠️ ngrok 필요 |
-| 9 | 네이버 리뷰 자동 등록 | 확인 후 | 공식 API 확인 필요 | ❌ 공식 미확인 |
+| 8 | 네이버 리뷰 자동 등록 | 확인 후 | 공식 Partner API 확인 필요 | ❌ 공식 미확인 |
+| 9 | 네이버 톡톡 양방향 | 확인 후 | 공식 API 미확인 | ❌ 공식 미확인 |
+
+**각 채널의 현재 capability** 는 앱 내 `/settings/integrations` 에서 확인 가능하며, `supported` 로 승격되는 조건이 표시됩니다.
 
 ---
 
@@ -161,36 +167,97 @@ export function requireRole(session, roles: Role[]) {
 
 ---
 
-## 단계 4 · 카카오 알림톡 발송 (예약 확정/리마인드)
+## 단계 4 · 카카오 3갈래 (성격이 다르므로 별도 track)
 
-**목표:** 예약 status=confirmed 로 바뀌면 자동으로 알림톡 발송.
+카카오는 **상담톡 / 챗봇 / 비즈메시지**가 각각 다른 상품이며 계약·기술·개발 난이도도 다릅니다.
+원하는 기능에 맞는 track 만 선택해 진행하세요.
 
-### 4-1. 발송대행사 선택
-공식 카카오 알림톡은 발송대행사를 통해서만 가능:
+### 4a. 카카오 **챗봇** (FAQ 자동응답) — **가장 먼저 붙이기 쉬움**
+
+**목표:** "진료시간?" / "주차돼요?" 같은 반복 문의에 자동 응답.
+
+#### 4a-1. 카카오 i 오픈빌더 계정 + 봇 생성
+- https://i.kakao.com 에서 무료로 봇 생성
+- 채널 연결 → 시나리오 편집
+
+#### 4a-2. 스킬 엔드포인트 등록
+앱에 이미 stub 구현되어 있음:
+- 파일: `apps/web/app/api/webhooks/kakao/chatbot/route.ts`
+- 공개 URL: `https://<your-domain>/api/webhooks/kakao/chatbot`
+- 오픈빌더 콘솔 → 스킬 → 스킬 서버 URL 에 위 URL 등록
+
+#### 4a-3. 응답 로직 교체
+현재 stub 은 키워드 매칭 + `kakaoChatbotProvider.buildResponse()` 호출.
+실제 운영 시 `packages/providers/src/mock/mockProvider.ts` 의 `kakaoChatbotProvider` 에서
+템플릿 DB (`Template` 모델) 조회하도록 교체.
+
+#### 4a-4. 민감 문의 라우팅
+stub 이 이미 부작용/환불/분쟁/의료사고/신고 키워드 감지 시 자동으로 상담원 인계 메시지 반환.
+추가로 해당 메시지를 `/conversations` 인박스에 등록해 담당자 배정되도록 확장 필요.
+
+#### 4a-5. capability 전환
+`kakaoChatbotProvider.capability.canAutoRespondFaq` 를 `cap("supported", ...)` 로 변경.
+
+---
+
+### 4b. 카카오 **비즈메시지** (알림톡/친구톡) — 대행사 계약 필요
+
+**목표:** 예약 status=confirmed 로 바뀌면 자동으로 알림톡 발송, 노쇼 경고 관리자 알림 등.
+
+#### 4b-1. 발송대행사 선택
 - **Aligo** (저렴, sandbox 있음)
 - **Nurigo** (개발자 친화적)
 - **Bizppurio** (엔터프라이즈)
 
-계약 → 채널 승인 → 템플릿 심사 승인 후 발송 가능 (템플릿 심사 2~5일).
+계약 → 채널 승인 → 템플릿 심사 (2~5일) → 발송 가능.
 
-### 4-2. 템플릿 등록
-`/templates` 의 `RESERVATION_CONFIRM` 본문을 대행사 콘솔에 등록 → 승인 대기.
+#### 4b-2. 템플릿 등록
+`/templates` 의 `RESERVATION_CONFIRM`, `RESERVATION_REMINDER` 본문을 대행사 콘솔에 등록 → 승인 대기.
 **승인 받은 템플릿 문구와 시스템의 템플릿 본문이 100% 일치해야** 발송 가능.
 
-### 4-3. provider 구현
-`packages/providers/src/kakao/alimtalkProvider.ts`:
+#### 4b-3. provider 구현
+`packages/providers/src/mock/mockProvider.ts` 의 `kakaoBizMessageProvider.sendTemplateMessage` 본문을
+실 대행사 API 호출로 교체:
 ```ts
-export class AligoAlimtalkProvider implements MessageProvider {
-  channel = "kakao_biz";
-  capability = { canSendBizMessage: true, ...base };
-  async sendMessage(phone: string, templateCode: string, variables: Record<string,string>) {
-    // Aligo API 호출
-  }
+async sendTemplateMessage(phone, templateCode, variables) {
+  // Aligo/Nurigo/Bizppurio SDK 호출
 }
 ```
+그 다음 capability 를 `cap("supported", ...)` 로 승격.
 
-### 4-4. 트리거
-`/api/reservations/:id` PATCH 에서 status가 `confirmed` 로 바뀌면 Job 큐에 `reservation_reminder` 추가 (단계 5 와 결합).
+#### 4b-4. 트리거
+- `/api/reservations/:id` PATCH 에서 status=confirmed → job 큐에 `reservation_reminder` 추가 (단계 5)
+- `runNoShowSweep()` 에서 이미 `sendManagerAlert` (stub) 호출 중 → 관리자 알림톡으로 교체
+
+---
+
+### 4c. 카카오 **상담톡** (실시간 양방향 상담) — 딜러사 계약 선행
+
+**목표:** 고객이 카카오 채널로 문의 → 앱 인박스에 등장 → 직원이 앱에서 답변 → 카카오로 전송.
+
+⚠️ **공식 상담톡 상품 + 딜러사 연동이 필요**합니다. 일반 카카오 채널 API 만으로는 불가능.
+
+#### 4c-1. 상담톡 딜러사 계약
+- NHN 커뮤니케이션즈, 인포뱅크 등 공식 상담톡 CPaaS 사업자와 계약
+- 계약 조건에 따라 webhook payload 포맷, 인증 방식이 결정됨
+
+#### 4c-2. 딜러사별 provider 구현
+각 딜러사가 고유 API 이므로 `kakaoConsultProvider` 의 인터페이스는 유지하고 구현체만 교체:
+```
+packages/providers/src/kakao/
+  consultProvider-nhn.ts
+  consultProvider-infobank.ts
+```
+dispatcher 에서 env var 기반 선택.
+
+#### 4c-3. webhook 수신
+- 딜러사가 상담 이벤트를 본 앱으로 POST
+- 앱은 `Conversation` + `Message` 레코드 생성 → `/conversations` 인박스에 즉시 노출
+- 직원이 응답 입력 → `ConsultProvider.sendMessage()` → 딜러사 API → 카카오로 전송
+
+#### 4c-4. 계약 전까지
+`/conversations` 에는 **카카오 채널 카드만 표시**하고, 답변은 "카카오 채널 관리자센터에서 직접 응대하세요" 안내.
+UI 를 만들어두되 capability=unavailable 로 버튼 비활성화.
 
 ---
 
@@ -279,7 +346,9 @@ system prompt: "한국 네이버 리뷰 캡처입니다. 별점, 작성자, 본�
 
 ---
 
-## 단계 8 · 카카오 채널 챗봇 웹훅
+## 단계 8 · (DEPRECATED — 단계 4a 로 대체됨) 카카오 챗봇 웹훅
+
+> ⚠️ 이 단계는 **단계 4a** 로 이동되었습니다. 아래 내용은 참고용으로만 남겨둡니다.
 
 **목표:** 카카오 채널로 오는 메시지를 자동으로 `/conversations` 에 수신.
 

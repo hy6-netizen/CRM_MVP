@@ -6,6 +6,7 @@
 
 > - **사용 매뉴얼**: [`docs/USER_MANUAL.md`](./docs/USER_MANUAL.md)
 > - **실 API 연동 로드맵**: [`docs/INTEGRATION_ROADMAP.md`](./docs/INTEGRATION_ROADMAP.md)
+> - **수동 대체 경로 (외부 API 없을 때)**: [`docs/MANUAL_FALLBACKS.md`](./docs/MANUAL_FALLBACKS.md)
 > - **Mac Mini 배포 가이드**: [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md)
 > - **보안 가이드 (배포 전 필독)**: [`docs/SECURITY.md`](./docs/SECURITY.md)
 > - **제품/운영 설계**: [`docs_PRODUCT_AND_OPERATIONS.md`](./docs_PRODUCT_AND_OPERATIONS.md)

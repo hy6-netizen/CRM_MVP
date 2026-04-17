@@ -79,6 +79,32 @@ test("OpenAI provider — 의성한방병원 톤 + 의도 레벨 탐지 규칙",
   assert.ok(c.includes("json_schema") && c.includes("strict: true"), "strict JSON schema 사용 필수");
 });
 
+test("provider capability — Kakao 3 분할 (consult/chatbot/bizmessage)", async () => {
+  const c = await fs.readFile("packages/providers/src/mock/mockProvider.ts", "utf8");
+  for (const p of ["kakaoConsultProvider", "kakaoChatbotProvider", "kakaoBizMessageProvider"]) {
+    assert.ok(c.includes(p), `${p} 누락`);
+  }
+  // 상담톡은 unavailable, 챗봇은 manual 로 기본 설정되어야 함 (from-gpt-to-claude 반영)
+  assert.ok(/kakaoConsultProvider[\s\S]*?unavailable/.test(c), "상담톡 기본 unavailable 여야 함");
+  assert.ok(/kakaoChatbotProvider[\s\S]*?manual/.test(c), "챗봇 기본 manual 여야 함");
+});
+
+test("capability 타입 — 4-state enum + flag 구조", async () => {
+  const c = await fs.readFile("packages/providers/src/types.ts", "utf8");
+  for (const s of ["supported", "manual", "unknown", "unavailable"]) {
+    assert.ok(c.includes(`"${s}"`), `CapabilityStatus 값 ${s} 누락`);
+  }
+  assert.ok(c.includes("canAutoRespondFaq"), "챗봇 capability flag 누락");
+  assert.ok(c.includes("ChatbotProvider") && c.includes("ConsultProvider") && c.includes("BizMessageProvider"), "카카오 3분할 인터페이스 필요");
+});
+
+test("카카오 챗봇 웹훅 stub — 2xx 응답 + 민감 키워드 인계", async () => {
+  const c = await fs.readFile("apps/web/app/api/webhooks/kakao/chatbot/route.ts", "utf8");
+  assert.ok(c.includes("version: \"2.0\""), "카카오 오픈빌더 Skill v2 포맷 필요");
+  assert.ok(c.includes("NextResponse.json(buildSkillResponse"), "항상 2xx JSON 응답해야 함");
+  assert.ok(c.includes("환불") && c.includes("부작용"), "민감 키워드 인계 로직 필요");
+});
+
 test("prisma schema — 14 핵심 모델", async () => {
   const c = await fs.readFile("packages/db/prisma/schema.prisma", "utf8");
   for (const model of [
