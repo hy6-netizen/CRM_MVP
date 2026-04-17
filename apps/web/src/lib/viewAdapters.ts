@@ -76,6 +76,7 @@ export function toReviewRow(r: Review): ReviewRow {
     postedAt: r.postedAt?.toISOString(),
     approvedAt: r.approvedAt?.toISOString(),
     approvedById: r.approvedById ?? undefined,
+    assigneeId: r.assigneeId ?? undefined,
     treatmentMentioned: r.treatmentMentioned ?? undefined,
     staffMentioned: r.staffMentioned ?? undefined,
   };

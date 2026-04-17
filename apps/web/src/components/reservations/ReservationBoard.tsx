@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import type { ReservationRow } from "../../lib/mockStore";
 import { RESERVATION_STATUS_LABEL, channelLabel, formatDateTime, relativeTime } from "../../lib/format";
+import { AssigneeSelect } from "../AssigneeSelect";
 import type { ReservationStatus } from "@hub/domain/src/types";
 
 const COLUMNS: ReservationStatus[] = [
@@ -49,16 +50,19 @@ export function ReservationBoard({ initial }: { initial: ReservationRow[] }) {
                   </div>
                   <div className="text-[11px] text-slate-500">{r.phoneMasked} · {channelLabel(r.sourceChannel)}</div>
                   {r.notes && <div className="text-xs text-slate-700 mt-1">{r.notes}</div>}
-                  <div className="flex items-center justify-between mt-2 text-[10px] text-slate-400">
-                    <span>등록 {relativeTime(r.createdAt)}</span>
-                    <select
-                      className="input py-0.5 text-[10px]"
-                      value={r.status}
-                      disabled={pending}
-                      onChange={(e) => startTransition(() => setStatus(r.id, e.target.value as ReservationStatus))}
-                    >
-                      {COLUMNS.map((s) => <option key={s} value={s}>{RESERVATION_STATUS_LABEL[s]}</option>)}
-                    </select>
+                  <div className="mt-2 space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-slate-400">
+                      <span>등록 {relativeTime(r.createdAt)}</span>
+                      <select
+                        className="input py-0.5 text-[10px]"
+                        value={r.status}
+                        disabled={pending}
+                        onChange={(e) => startTransition(() => setStatus(r.id, e.target.value as ReservationStatus))}
+                      >
+                        {COLUMNS.map((s) => <option key={s} value={s}>{RESERVATION_STATUS_LABEL[s]}</option>)}
+                      </select>
+                    </div>
+                    <AssigneeSelect entity="reservations" id={r.id} currentAssigneeId={r.assigneeId} size="xs" />
                   </div>
                 </li>
               ))}

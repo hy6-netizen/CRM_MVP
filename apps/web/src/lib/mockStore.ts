@@ -75,6 +75,7 @@ export interface ReviewRow {
   postedAt?: string;
   approvedAt?: string;
   approvedById?: string;
+  assigneeId?: string;
   treatmentMentioned?: string;
   staffMentioned?: string;
 }

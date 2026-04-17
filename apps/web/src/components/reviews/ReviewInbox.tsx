@@ -8,6 +8,7 @@ import {
   riskBadgeClass,
   riskLabel,
 } from "../../lib/format";
+import { AssigneeSelect } from "../AssigneeSelect";
 import type { ComplianceResult, ReviewStatus } from "@hub/domain/src/types";
 
 const STATUS_FILTERS: { key: "all" | ReviewStatus; label: string }[] = [
@@ -185,6 +186,11 @@ export function ReviewInbox({ initial }: { initial: ReviewRow[] }) {
                 <span className={riskBadgeClass(selected.riskLevel)}>{riskLabel(selected.riskLevel)}</span>
                 <span className="badge-neutral">{REVIEW_STATUS_LABEL[selected.status]}</span>
                 {selected.sentiment && <span className="badge-neutral">{selected.sentiment}</span>}
+                <AssigneeSelect
+                  entity="reviews"
+                  id={selected.id}
+                  currentAssigneeId={selected.assigneeId}
+                />
               </div>
             </header>
 

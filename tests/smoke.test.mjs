@@ -58,6 +58,27 @@ test("Prisma 연결 기반 설정", async () => {
   assert.ok(schema.includes("passwordHash"), "User.passwordHash 필드 필요");
 });
 
+test("담당자 배정 UI — /api/users + 재사용 컴포넌트", async () => {
+  await fs.access("apps/web/app/api/users/route.ts");
+  await fs.access("apps/web/src/components/AssigneeSelect.tsx");
+  const c = await fs.readFile("apps/web/src/components/AssigneeSelect.tsx", "utf8");
+  assert.ok(c.includes('entity: Entity'), "entity 분기 prop 필요 (reviews/conversations/reservations)");
+  // 세 군데 모두에서 사용되는지
+  const review = await fs.readFile("apps/web/src/components/reviews/ReviewInbox.tsx", "utf8");
+  const conv = await fs.readFile("apps/web/src/components/conversations/ConversationsInbox.tsx", "utf8");
+  const rsv = await fs.readFile("apps/web/src/components/reservations/ReservationBoard.tsx", "utf8");
+  assert.ok(review.includes("AssigneeSelect") && conv.includes("AssigneeSelect") && rsv.includes("AssigneeSelect"), "3 화면에 모두 배치 필요");
+});
+
+test("미응답 상담 sweep + 통합 알림", async () => {
+  const c = await fs.readFile("apps/web/src/lib/noShowSweep.ts", "utf8");
+  assert.ok(c.includes("runUnansweredConversationSweep"), "미응답 상담 sweep 필요");
+  assert.ok(c.includes("runAllSweeps"), "통합 실행 함수 필요");
+  assert.ok(c.includes("UNANSWERED_THRESHOLD_MS"), "30분 threshold 필요");
+  const dash = await fs.readFile("apps/web/app/dashboard/page.tsx", "utf8");
+  assert.ok(dash.includes("runAllSweeps"), "대시보드에서 통합 sweep 호출 필요");
+});
+
 test("네이버 톡톡 빠른 입력 — 분류 + 초안 제안", async () => {
   await fs.access("apps/web/app/api/conversations/quick-add/route.ts");
   await fs.access("apps/web/src/components/conversations/QuickAddButton.tsx");

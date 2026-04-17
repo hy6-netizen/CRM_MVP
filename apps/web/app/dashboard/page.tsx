@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "../../src/lib/db";
 import { buildDashboardSummary } from "../../src/lib/dashboard";
-import { openNotifications, runNoShowSweep } from "../../src/lib/noShowSweep";
+import { openNotifications, runAllSweeps } from "../../src/lib/noShowSweep";
 import { NoShowAlertBanner } from "../../src/components/NoShowAlertBanner";
 import { toNotificationRow } from "../../src/lib/viewAdapters";
 import {
@@ -29,8 +29,10 @@ const CARD_DEFS: { key: keyof Awaited<ReturnType<typeof buildDashboardSummary>>;
 ];
 
 export default async function DashboardPage() {
-  // 노쇼 감지 idempotent 실행 (BullMQ cron 도입 전 대체)
-  await runNoShowSweep();
+  // 시간 기반 자동 감지 idempotent 실행 (BullMQ cron 도입 전 대체):
+  // - 노쇼 위험 (예약 시간 + 20분)
+  // - 미응답 상담 (메시지 후 30분)
+  await runAllSweeps();
   const [summary, alerts, urgentReviews, pendingReservations, newConversations] = await Promise.all([
     buildDashboardSummary(),
     openNotifications(),

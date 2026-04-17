@@ -9,6 +9,7 @@ import {
   riskBadgeClass,
   riskLabel,
 } from "../../lib/format";
+import { AssigneeSelect } from "../AssigneeSelect";
 import type { ConversationStatus, Channel } from "@hub/domain/src/types";
 
 const STATUS_FILTERS: { key: "all" | ConversationStatus; label: string }[] = [
@@ -121,6 +122,11 @@ export function ConversationsInbox({ initial, initialMessages }: { initial: Conv
               </div>
               <div className="flex items-center gap-2">
                 <button className="btn-ghost" disabled={pending} onClick={() => startTransition(() => classify(selected.id))}>자동 분류</button>
+                <AssigneeSelect
+                  entity="conversations"
+                  id={selected.id}
+                  currentAssigneeId={selected.assigneeId}
+                />
                 <select
                   className="input py-1 text-xs"
                   value={selected.status}
