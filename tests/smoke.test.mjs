@@ -58,6 +58,26 @@ test("Prisma 연결 기반 설정", async () => {
   assert.ok(schema.includes("passwordHash"), "User.passwordHash 필드 필요");
 });
 
+test("네이버 톡톡 빠른 입력 — 분류 + 초안 제안", async () => {
+  await fs.access("apps/web/app/api/conversations/quick-add/route.ts");
+  await fs.access("apps/web/src/components/conversations/QuickAddButton.tsx");
+  const r = await fs.readFile("apps/web/app/api/conversations/quick-add/route.ts", "utf8");
+  assert.ok(r.includes("classifyConversation"), "자동 분류기 연동 필요");
+  assert.ok(r.includes("prisma.template.findUnique"), "Template DB 조회로 초안 필요");
+  assert.ok(r.includes("HUMAN_ONLY"), "사람 검토 강제 카테고리 처리 필요");
+});
+
+test("네이버 예약 CSV 임포트 — 라우트 + 한글 컬럼 매핑", async () => {
+  await fs.access("apps/web/app/api/reservations/import-csv/route.ts");
+  await fs.access("apps/web/src/components/reservations/CsvImportButton.tsx");
+  const r = await fs.readFile("apps/web/app/api/reservations/import-csv/route.ts", "utf8");
+  for (const k of ["이름", "고객명", "예약자", "연락처", "예약일시", "예약상태"]) {
+    assert.ok(r.includes(k), `한글 컬럼 매핑 누락: ${k}`);
+  }
+  assert.ok(r.includes("externalReservationId"), "dedupe 필수");
+  assert.ok(r.includes("maskPhone"), "전화번호 마스킹 필수");
+});
+
 test("네이버 리뷰 배치 import — ai-system 연동 스크립트", async () => {
   await fs.access("packages/db/scripts/import-naver-reviews.ts");
   await fs.access("scripts/sync-naver-reviews.sh");

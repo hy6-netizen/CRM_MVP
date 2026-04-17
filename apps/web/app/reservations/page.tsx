@@ -1,5 +1,6 @@
 import { ReservationBoard } from "../../src/components/reservations/ReservationBoard";
 import { CreateReservationButton } from "../../src/components/reservations/CreateReservationButton";
+import { CsvImportButton } from "../../src/components/reservations/CsvImportButton";
 import { prisma } from "../../src/lib/db";
 import { toReservationRow } from "../../src/lib/viewAdapters";
 
@@ -13,12 +14,15 @@ export default async function ReservationsPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">예약 보드</h1>
           <p className="text-sm text-slate-500 mt-1">
-            현재 네이버 예약 공식 API 연동 전이라 <strong>수동 입력 / CSV 임포트</strong> 기반입니다.
-            네이버 스마트플레이스에서 예약 발생 시, 운영자가 "수동 예약 추가"로 보드에 등록하세요.
-            20분 이상 경과한 확정 예약은 자동으로 <strong>노쇼 위험</strong>으로 전환됩니다.
+            네이버 스마트플레이스에서 예약 목록을 CSV 로 export 한 뒤 <strong>CSV 임포트</strong> 로 일괄 등록하거나,
+            <strong> 수동 예약 추가</strong> 로 단건 입력하세요.
+            20분 이상 경과한 확정 예약은 자동으로 <strong>노쇼 위험</strong> 으로 전환됩니다.
           </p>
         </div>
-        <CreateReservationButton />
+        <div className="flex items-center gap-2">
+          <CsvImportButton />
+          <CreateReservationButton />
+        </div>
       </div>
       <ReservationBoard initial={rows.map(toReservationRow)} />
     </div>
