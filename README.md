@@ -19,7 +19,9 @@
 # 1. 의존성
 pnpm install
 cp .env.example .env
-# .env 편집: DATABASE_URL, (선택) OPENAI_API_KEY
+# .env 편집: DATABASE_URL, AUTH_SECRET, (선택) OPENAI_API_KEY
+# Next.js 가 apps/web/ 기준으로 .env 를 찾으므로 루트 .env 를 심링크로 연결:
+ln -sf ../../.env apps/web/.env
 
 # 2. Postgres 준비 (macOS)
 brew install postgresql@16
