@@ -58,6 +58,15 @@ test("Prisma 연결 기반 설정", async () => {
   assert.ok(schema.includes("passwordHash"), "User.passwordHash 필드 필요");
 });
 
+test("네이버 리뷰 이미지 OCR — Vision 라우트 + 버튼", async () => {
+  await fs.access("apps/web/app/api/reviews/extract-image/route.ts");
+  await fs.access("apps/web/src/components/reviews/ImageImportButton.tsx");
+  const openai = await fs.readFile("packages/ai/src/llm/openai.ts", "utf8");
+  assert.ok(openai.includes("extractReviewFromImage"), "openai provider 에 extractReviewFromImage 필요");
+  assert.ok(openai.includes("image_url"), "vision 입력 (image_url) 필수");
+  assert.ok(openai.includes("IMAGE_EXTRACT_SCHEMA"), "이미지 추출 schema 필요");
+});
+
 test("NextAuth 로그인 구성", async () => {
   await fs.access("apps/web/src/lib/auth.ts");
   await fs.access("apps/web/app/api/auth/[...nextauth]/route.ts");

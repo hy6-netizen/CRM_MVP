@@ -28,6 +28,23 @@ export interface LLMComplianceResponse {
   usage?: LLMUsage;
 }
 
+export interface ReviewImageExtractResult {
+  rating: number; // 1~5
+  reviewerNameMasked?: string;
+  content: string;
+  createdAt?: string; // 리뷰 작성일 (extract 가능 시)
+  treatmentMentioned?: string;
+  staffMentioned?: string;
+  confidence: number; // 0.0 ~ 1.0
+  warnings: string[];
+}
+
+export interface LLMImageExtractResponse {
+  result: ReviewImageExtractResult;
+  provider: string;
+  usage?: LLMUsage;
+}
+
 export interface LLMProvider {
   name: string;
   /** 리뷰 답글 초안 생성. 결정형/LLM 모두 같은 인터페이스. */
@@ -38,4 +55,10 @@ export interface LLMProvider {
    * 키워드로는 잡히지 않는 "모든 질환을 낫게 한다" 같은 표현을 걸러냄.
    */
   runIntentComplianceCheck(draft: string): Promise<LLMComplianceResponse>;
+  /**
+   * 네이버 리뷰 캡처 이미지에서 별점/작성자/본문 추출.
+   * Vision 지원 provider (openai gpt-4o-mini 이상) 에서만 동작.
+   * mock 은 에러 반환.
+   */
+  extractReviewFromImage(imageDataUrl: string): Promise<LLMImageExtractResponse>;
 }

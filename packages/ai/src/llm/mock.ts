@@ -15,4 +15,7 @@ export const mockLLMProvider: LLMProvider = {
     // mock 은 키워드 검사만 가능. 의도 레벨 탐지 불가.
     return { result: deterministicCompliance(draft), provider: "mock" };
   },
+  async extractReviewFromImage() {
+    throw new Error("mock provider does not support image extraction. AI_PROVIDER=openai 필요.");
+  },
 };

@@ -17,7 +17,14 @@ import type {
   RiskLevel,
   Sentiment,
 } from "@hub/domain/src/types";
-import type { LLMComplianceResponse, LLMProvider, LLMReviewReplyResponse, LLMUsage } from "./types";
+import type {
+  LLMComplianceResponse,
+  LLMImageExtractResponse,
+  LLMProvider,
+  LLMReviewReplyResponse,
+  LLMUsage,
+  ReviewImageExtractResult,
+} from "./types";
 
 // 모델별 단가 (2026-04 기준, 1M 토큰 USD). 캐시 할인 전 값.
 const PRICE_TABLE: Record<string, { input: number; output: number; cachedInput: number }> = {
@@ -121,6 +128,47 @@ const REVIEW_SCHEMA = {
     reasons: { type: "array", items: { type: "string" } },
   },
   required: ["sentiment", "category", "riskLevel", "needsHumanReview", "draft", "pledgeUsed", "reasons"],
+  additionalProperties: false,
+};
+
+const IMAGE_EXTRACT_SYSTEM = `당신은 한국 네이버 플레이스 리뷰 캡처 이미지를 읽어 구조화된 데이터로 추출하는 전문가입니다.
+
+이미지는 보통 아래 요소를 포함합니다:
+- 작성자 닉네임 (일부 글자가 ** 로 마스킹된 경우 많음)
+- 별점 (★ 1~5개)
+- 리뷰 본문
+- 작성일 또는 상대시간 (예: "2일 전", "2025.03.14")
+- (선택) 방문 키워드, 재방문 여부, 응답 후기
+
+추출 규칙:
+- rating 은 1~5 정수. 읽을 수 없으면 가장 유력한 값으로 추정하고 confidence 낮춤.
+- reviewerNameMasked: 이미 마스킹된 문자 (e.g. "김**") 그대로 반환. 원래 이름을 추정하지 마세요.
+- content: 리뷰 본문 텍스트만. 날짜/태그/UI 문구(예: "더보기", "답글") 제외.
+- treatmentMentioned: 침/한약/추나/물리치료/부항/뜸 등 구체 치료 언급 시만 값.
+- staffMentioned: "김선생님", "이원장님" 같이 직원/원장 언급 시만 값.
+- createdAt: YYYY-MM-DD 형식으로 변환 (상대시간은 ISO 날짜 추정 말고 빈 값).
+- confidence: 이미지 품질 + 텍스트 명확도 종합 점수 (0.0~1.0).
+- warnings: 불확실한 부분 한국어로 나열 (예: "별점 아이콘이 잘려서 4인지 5인지 불명확").
+
+본문에 개인 식별 정보(전화번호, 실명, 주소)가 보이면:
+- 전화번호, 주소: content 에서 제거하고 warnings 에 기록
+- 실명: 마스킹해서 포함 (예: "김철수" → "김**")
+
+반드시 지정된 JSON schema 를 준수합니다.`;
+
+const IMAGE_EXTRACT_SCHEMA = {
+  type: "object" as const,
+  properties: {
+    rating: { type: "integer", minimum: 1, maximum: 5 },
+    reviewerNameMasked: { type: "string" },
+    content: { type: "string" },
+    createdAt: { type: "string" },
+    treatmentMentioned: { type: "string" },
+    staffMentioned: { type: "string" },
+    confidence: { type: "number", minimum: 0, maximum: 1 },
+    warnings: { type: "array", items: { type: "string" } },
+  },
+  required: ["rating", "reviewerNameMasked", "content", "createdAt", "treatmentMentioned", "staffMentioned", "confidence", "warnings"],
   additionalProperties: false,
 };
 
@@ -252,5 +300,49 @@ export function createOpenAIProvider(opts: { apiKey: string; model?: string }): 
     };
   }
 
-  return { name: `openai:${model}`, generateReviewReply, runIntentComplianceCheck };
+  async function extractReviewFromImage(imageDataUrl: string): Promise<LLMImageExtractResponse> {
+    // gpt-4o-mini / gpt-4o 는 vision 지원. 구형 모델은 에러 날 수 있음.
+    const response = await client.chat.completions.create({
+      model,
+      max_tokens: 800,
+      temperature: 0.1,
+      response_format: {
+        type: "json_schema",
+        json_schema: { name: "review_image_extract", schema: IMAGE_EXTRACT_SCHEMA, strict: true },
+      },
+      messages: [
+        { role: "system", content: IMAGE_EXTRACT_SYSTEM },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "이 네이버 리뷰 캡처에서 별점/작성자/본문/날짜 등을 JSON 으로 추출하세요." },
+            { type: "image_url", image_url: { url: imageDataUrl } },
+          ],
+        },
+      ],
+    });
+
+    const raw = response.choices[0]?.message?.content;
+    if (!raw) throw new Error("openai vision: empty response");
+    const parsed = JSON.parse(raw) as Partial<ReviewImageExtractResult>;
+
+    const result: ReviewImageExtractResult = {
+      rating: typeof parsed.rating === "number" ? parsed.rating : 5,
+      reviewerNameMasked: typeof parsed.reviewerNameMasked === "string" && parsed.reviewerNameMasked.length > 0 ? parsed.reviewerNameMasked : undefined,
+      content: typeof parsed.content === "string" ? parsed.content : "",
+      createdAt: typeof parsed.createdAt === "string" && parsed.createdAt.length > 0 ? parsed.createdAt : undefined,
+      treatmentMentioned: typeof parsed.treatmentMentioned === "string" && parsed.treatmentMentioned.length > 0 ? parsed.treatmentMentioned : undefined,
+      staffMentioned: typeof parsed.staffMentioned === "string" && parsed.staffMentioned.length > 0 ? parsed.staffMentioned : undefined,
+      confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.5,
+      warnings: Array.isArray(parsed.warnings) ? parsed.warnings : [],
+    };
+
+    return {
+      result,
+      provider: `openai:${model}`,
+      usage: response.usage ? makeUsage(model, response.usage) : undefined,
+    };
+  }
+
+  return { name: `openai:${model}`, generateReviewReply, runIntentComplianceCheck, extractReviewFromImage };
 }
