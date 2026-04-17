@@ -1,0 +1,13 @@
+﻿{
+  "name": "hospital-ops-hub",
+  "private": true,
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "dev": "pnpm --filter @hub/web dev",
+    "build": "pnpm --filter @hub/web build",
+    "start": "pnpm --filter @hub/web start",
+    "lint": "pnpm --filter @hub/web lint",
+    "test": "node --test tests/*.test.mjs",
+    "test:ai": "node --test tests/ai-engines.test.mjs"
+  }
+}

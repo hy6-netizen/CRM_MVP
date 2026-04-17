@@ -1,0 +1,10 @@
+﻿{
+"name": "@hub/db",
+"private": true,
+"scripts": {
+"prisma": "prisma",
+"migrate": "prisma migrate dev",
+"seed": "node prisma/seed.ts"
+},
+"devDependencies": { "prisma": "5.22.0" }
+}
