@@ -37,7 +37,7 @@ test("Gmail wrapper + 폴링 워커", async () => {
   assert.ok(gm.includes("naverbooking_noreply@navercorp.com"), "네이버 발신자 필터");
   const poll = await fs.readFile("apps/web/src/lib/gmailPoll.ts", "utf8");
   assert.ok(poll.includes("parseNaverBookingEmail"), "파서 호출");
-  assert.ok(poll.includes("externalReservationId"), "dedupe");
+  assert.ok(poll.includes("applyNaverBookingEvent"), "이벤트 적용 공유 로직 사용 (dedupe 은 거기서)");
 });
 
 test("Gmail 설정 UI + launchd 템플릿", async () => {

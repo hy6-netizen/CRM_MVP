@@ -1,10 +1,10 @@
-// Gmail 연결된 계정별로 네이버 예약 알림 메일을 증분 조회 → ingest.
+// Gmail 연결된 계정별로 네이버 예약 알림 메일을 증분 조회 → 이벤트 적용.
 // 호출 경로: /api/cron/gmail-poll (외부 cron/launchd 에서 주기 실행)
 
 import { prisma } from "./db";
 import { fetchMessageRaw, getAuthedGmail, listNaverBookingMessageIds } from "./gmail";
 import { parseNaverBookingEmail } from "./parsers/naverBookingEmail";
-import { recordAudit } from "./audit";
+import { applyNaverBookingEvent } from "./naverBookingApply";
 
 export interface PollResult {
   account: string;
@@ -12,6 +12,8 @@ export interface PollResult {
   parsed: number;
   created: number;
   updated: number;
+  canceled: number;
+  skipped: number;
   failed: number;
   errors: string[];
 }
@@ -35,13 +37,14 @@ export async function pollOne(accountId: string): Promise<PollResult> {
     parsed: 0,
     created: 0,
     updated: 0,
+    canceled: 0,
+    skipped: 0,
     failed: 0,
     errors: [],
   };
 
   try {
     const { gmail } = await getAuthedGmail(accountId);
-    // lastPolledAt 있으면 그 이후만. 첫 실행이면 최근 7일.
     const since = acct.lastPolledAt
       ? Math.floor(acct.lastPolledAt.getTime() / 1000)
       : Math.floor((Date.now() - 7 * 86400_000) / 1000);
@@ -59,45 +62,11 @@ export async function pollOne(accountId: string): Promise<PollResult> {
           continue;
         }
         result.parsed++;
-
-        const existing = await prisma.reservation.findFirst({
-          where: { externalReservationId: parsed.externalReservationId },
-        });
-        const notes = [
-          parsed.productName && `상품: ${parsed.productName}`,
-          parsed.requests && `요청: ${parsed.requests}`,
-        ]
-          .filter(Boolean)
-          .join(" · ") || undefined;
-
-        if (existing) {
-          await prisma.reservation.update({
-            where: { id: existing.id },
-            data: { reservationAt: parsed.reservationAt, notes },
-          });
-          result.updated++;
-        } else {
-          // 신규 네이버 예약은 "신규(new)" 컬럼으로. 관리자가 확인 후 "확정 완료"로 이동.
-          const created = await prisma.reservation.create({
-            data: {
-              sourceChannel: "naver_reservation",
-              externalReservationId: parsed.externalReservationId,
-              patientName: parsed.patientName,
-              phoneMasked: "-",
-              reservationAt: parsed.reservationAt,
-              status: "new",
-              notes,
-            },
-          });
-          await recordAudit({
-            actorName: "gmail-poll",
-            entityType: "Reservation",
-            entityId: created.id,
-            action: "reservation.ingested_from_gmail",
-            after: { email: acct.email, confidence: parsed.confidence, warnings: parsed.warnings },
-          });
-          result.created++;
-        }
+        const applied = await applyNaverBookingEvent(parsed, { source: "gmail-poll", actorName: "gmail-poll" });
+        result.created += applied.created;
+        result.updated += applied.updated;
+        result.canceled += applied.canceled;
+        result.skipped += applied.skipped;
       } catch (e) {
         result.failed++;
         result.errors.push(e instanceof Error ? e.message : String(e));

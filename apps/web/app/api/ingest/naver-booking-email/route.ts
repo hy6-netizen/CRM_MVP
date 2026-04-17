@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { parseNaverBookingEmail } from "../../../../src/lib/parsers/naverBookingEmail";
-import { prisma } from "../../../../src/lib/db";
-import { recordAudit } from "../../../../src/lib/audit";
+import { applyNaverBookingEvent } from "../../../../src/lib/naverBookingApply";
 
 // 네이버 예약 알림 이메일을 받아 Reservation 을 upsert.
 //
@@ -126,62 +125,19 @@ export async function POST(req: Request) {
   if (!parsed) {
     return NextResponse.json({
       error: "parse_failed",
-      detail: "필수 필드 (예약자명/예약번호/이용일시) 추출 실패",
+      detail: "이메일 제목/본문에서 이벤트 타입 또는 필수 필드 추출 실패",
       subjectDetected: subject,
       fromDetected: from,
       bodyExcerpt: body.slice(0, 400),
     }, { status: 422 });
   }
 
-  // Reservation upsert
-  // 새로 들어오는 네이버 예약은 "신규(new)" 상태로 — 관리자가 수동 확인 후 "확정 완료" 로 이동.
-  const existing = await prisma.reservation.findFirst({ where: { externalReservationId: parsed.externalReservationId } });
-  const dataCommon = {
-    sourceChannel: "naver_reservation" as const,
-    externalReservationId: parsed.externalReservationId,
-    patientName: parsed.patientName,
-    reservationAt: parsed.reservationAt,
-    phoneMasked: "-" as string,
-    notes: [parsed.productName && `상품: ${parsed.productName}`, parsed.requests && `요청: ${parsed.requests}`]
-      .filter(Boolean)
-      .join(" · ") || undefined,
-    status: "new" as const,
-  };
-
-  let reservation;
-  let action: "created" | "updated";
-  if (existing) {
-    reservation = await prisma.reservation.update({
-      where: { id: existing.id },
-      data: {
-        reservationAt: parsed.reservationAt,
-        notes: dataCommon.notes,
-        // status 는 이미 확정/취소 등 변경됐을 수 있으므로 덮어쓰지 않음
-      },
-    });
-    action = "updated";
-  } else {
-    reservation = await prisma.reservation.create({ data: dataCommon });
-    action = "created";
-  }
-
-  await recordAudit({
-    actorName: "naver-email-ingest",
-    entityType: "Reservation",
-    entityId: reservation.id,
-    action: `reservation.ingested_from_email.${action}`,
-    after: {
-      confidence: parsed.confidence,
-      warnings: parsed.warnings,
-      subject,
-      productName: parsed.productName,
-    },
-  });
+  const applied = await applyNaverBookingEvent(parsed, { source: "email" });
 
   return NextResponse.json({
     ok: true,
-    action,
-    reservation,
+    eventType: parsed.eventType,
     parsed,
+    applied,
   });
 }

@@ -7,7 +7,8 @@
     "generate": "dotenv -e ../../.env -- prisma generate",
     "migrate": "dotenv -e ../../.env -- prisma migrate dev",
     "seed": "dotenv -e ../../.env -- tsx prisma/seed.ts",
-    "import:naver-reviews": "dotenv -e ../../.env -- tsx scripts/import-naver-reviews.ts"
+    "import:naver-reviews": "dotenv -e ../../.env -- tsx scripts/import-naver-reviews.ts",
+    "inspect:naver-emails": "dotenv -e ../../.env -- tsx scripts/inspect-naver-emails.ts"
   },
   "devDependencies": {
     "prisma": "5.22.0",
@@ -17,6 +18,7 @@
   "dependencies": {
     "@prisma/client": "5.22.0",
     "bcryptjs": "2.4.3",
-    "@types/bcryptjs": "2.4.6"
+    "@types/bcryptjs": "2.4.6",
+    "googleapis": "144.0.0"
   }
 }
