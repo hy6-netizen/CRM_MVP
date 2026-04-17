@@ -3,16 +3,19 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "prisma": "prisma",
-    "generate": "prisma generate",
-    "migrate": "prisma migrate dev",
-    "seed": "tsx prisma/seed.ts"
+    "prisma": "dotenv -e ../../.env -- prisma",
+    "generate": "dotenv -e ../../.env -- prisma generate",
+    "migrate": "dotenv -e ../../.env -- prisma migrate dev",
+    "seed": "dotenv -e ../../.env -- tsx prisma/seed.ts"
   },
   "devDependencies": {
     "prisma": "5.22.0",
-    "tsx": "4.19.2"
+    "tsx": "4.19.2",
+    "dotenv-cli": "7.4.4"
   },
   "dependencies": {
-    "@prisma/client": "5.22.0"
+    "@prisma/client": "5.22.0",
+    "bcryptjs": "2.4.3",
+    "@types/bcryptjs": "2.4.6"
   }
 }
