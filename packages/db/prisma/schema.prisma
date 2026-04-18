@@ -1,3 +1,350 @@
-﻿generator client { provider = "prisma-client-js" }
-datasource db { provider = "postgresql"; url = env("DATABASE_URL") }
-model User { id String @id @default(cuid()) name String email String @unique role String createdAt DateTime @default(now()) }
+// Hospital Ops Hub — Prisma schema
+// CRM MVP prompt §13 의 14개 엔티티를 모두 표현.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+enum Role {
+  admin
+  manager
+  staff
+  reviewer
+}
+
+enum Channel {
+  naver_reservation
+  naver_talk
+  naver_review
+  kakao_channel
+  kakao_biz
+  manual
+  unknown
+}
+
+enum ReservationStatus {
+  new
+  pending_confirmation
+  confirmed
+  change_requested
+  canceled
+  no_show_risk
+  completed
+}
+
+enum ConversationStatus {
+  new
+  in_progress
+  waiting_patient
+  resolved
+  escalated
+  archived
+}
+
+enum ConversationCategory {
+  CONSULT_HOURS         @map("진료시간")
+  LOCATION_PARKING      @map("위치/주차")
+  RESERVATION_INQUIRY   @map("예약문의")
+  RESERVATION_CHANGE    @map("예약변경취소")
+  PRICE                 @map("비용문의")
+  PREP_DRESS            @map("준비물복장")
+  DOCUMENTS             @map("서류문의")
+  SYMPTOM               @map("증상상담")
+  COMPLAINT             @map("불만민원")
+  REFUND_DISPUTE        @map("환불분쟁")
+  OTHER                 @map("기타")
+}
+
+enum ReviewStatus {
+  new
+  draft_generated
+  needs_review
+  approved
+  posted
+  archived
+  escalated
+}
+
+enum MessageDirection {
+  inbound
+  outbound
+  draft
+  system
+}
+
+enum RiskLevel {
+  low
+  medium
+  high
+}
+
+enum Sentiment {
+  positive
+  neutral
+  negative
+  sensitive
+}
+
+enum ReviewCategory {
+  KIND       @map("친절")
+  TREATMENT  @map("치료만족")
+  RECOVERY   @map("회복후기")
+  SHORT_THX  @map("짧은감사")
+  REVISIT    @map("재방문의사")
+  COMPLAINT  @map("불만")
+  OTHER      @map("기타")
+}
+
+enum ComplianceStatus {
+  approved
+  rejected
+  revision_required
+  pending
+}
+
+enum JobStatus {
+  queued
+  running
+  succeeded
+  failed
+  retrying
+}
+
+// ─────────────────────────────────────────────
+// Models
+// ─────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String?  // bcrypt hash. null 이면 로그인 불가 (demo 계정 포함)
+  role         Role     @default(staff)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  conversations  Conversation[]    @relation("conversationAssignee")
+  reservations   Reservation[]     @relation("reservationAssignee")
+  reviews        Review[]          @relation("reviewAssignee")
+  approvedDrafts ReviewReplyDraft[] @relation("draftApprover")
+  auditLogs      AuditLog[]
+  templatesCreated Template[]      @relation("templateCreator")
+  templatesUpdated Template[]      @relation("templateUpdater")
+}
+
+model PatientContact {
+  id           String   @id @default(cuid())
+  externalKey  String?
+  channel      Channel
+  name         String?
+  phoneMasked  String?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  conversations Conversation[]
+  reservations  Reservation[]
+
+  @@index([channel, externalKey])
+}
+
+model Conversation {
+  id                 String                @id @default(cuid())
+  channel            Channel
+  externalThreadId   String?
+  contactId          String?
+  contact            PatientContact?       @relation(fields: [contactId], references: [id])
+  // denormalized contact info — MVP 에선 PatientContact 없어도 동작하도록 직접 저장
+  contactName        String?
+  contactPhoneMasked String?
+  status             ConversationStatus    @default(new)
+  category           ConversationCategory?
+  riskLevel          RiskLevel             @default(low)
+  assigneeId         String?
+  assignee           User?                 @relation("conversationAssignee", fields: [assigneeId], references: [id])
+  lastMessageAt      DateTime              @default(now())
+  lastMessagePreview String?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  messages Message[]
+
+  @@index([status])
+  @@index([channel])
+  @@index([assigneeId])
+}
+
+model Message {
+  id             String           @id @default(cuid())
+  conversationId String
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  direction      MessageDirection
+  sourceChannel  Channel
+  content        String
+  metaJson       Json?
+  createdAt      DateTime         @default(now())
+
+  @@index([conversationId])
+}
+
+model Reservation {
+  id                    String            @id @default(cuid())
+  sourceChannel         Channel           @default(naver_reservation)
+  externalReservationId String?
+  patientName           String
+  phoneMasked           String?
+  reservationAt         DateTime
+  status                ReservationStatus @default(new)
+  assigneeId            String?
+  assignee              User?             @relation("reservationAssignee", fields: [assigneeId], references: [id])
+  contactId             String?
+  contact               PatientContact?   @relation(fields: [contactId], references: [id])
+  notes                 String?
+  capabilityFlagsJson   Json?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@index([status])
+  @@index([reservationAt])
+}
+
+model Review {
+  id                 String          @id @default(cuid())
+  sourceChannel      Channel         @default(naver_review)
+  externalReviewId   String?
+  reviewerNameMasked String?
+  rating             Int
+  content            String
+  rawPayloadJson     Json?
+  status             ReviewStatus    @default(new)
+  sentiment          Sentiment?
+  riskLevel          RiskLevel       @default(low)
+  category           ReviewCategory?
+  assigneeId         String?
+  assignee           User?           @relation("reviewAssignee", fields: [assigneeId], references: [id])
+  imageUrl           String?
+  imageConfidence    Float?
+  treatmentMentioned String?
+  staffMentioned     String?
+  // 현재 활성 초안 (가장 최근 것을 inline 저장, 이력은 drafts 테이블)
+  draft              String?
+  draftReasons       Json?
+  approvedDraft      String?
+  complianceStatus   ComplianceStatus?
+  approvedById       String?
+  approvedAt         DateTime?
+  postedAt           DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  drafts ReviewReplyDraft[]
+
+  @@index([status])
+  @@index([rating])
+}
+
+model ReviewReplyDraft {
+  id                String           @id @default(cuid())
+  reviewId          String
+  review            Review           @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  draft             String
+  complianceStatus  ComplianceStatus @default(pending)
+  complianceIssues  Json?
+  generatorMetaJson Json?
+  approvedById      String?
+  approvedBy        User?            @relation("draftApprover", fields: [approvedById], references: [id])
+  approvedAt        DateTime?
+  postedAt          DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([reviewId])
+}
+
+model Template {
+  id                  String   @id @default(cuid())
+  code                String   @unique
+  channel             Channel
+  intent              String
+  title               String
+  body                String
+  variables           Json?
+  enabled             Boolean  @default(true)
+  requiresHumanReview Boolean  @default(false)
+  complianceLevel     String   @default("standard")
+  createdById         String?
+  createdBy           User?    @relation("templateCreator", fields: [createdById], references: [id])
+  updatedById         String?
+  updatedBy           User?    @relation("templateUpdater", fields: [updatedById], references: [id])
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id])
+  actorName  String?  // actor 가 없는 system 기록 시 표시용
+  entityType String
+  entityId   String
+  action     String
+  beforeJson Json?
+  afterJson  Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model GmailAccount {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  accessToken    String
+  refreshToken   String
+  tokenScope     String?
+  expiresAt      DateTime
+  lastHistoryId  String?   // Gmail history.list 증분 조회용 커서
+  lastPolledAt   DateTime?
+  enabled        Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Notification {
+  id           String    @id @default(cuid())
+  level        String    // info | warning | critical
+  title        String
+  body         String
+  entityType   String?
+  entityId     String?
+  dismissedAt  DateTime?
+  deliveredVia String?   // alimtalk | stub | in_app_only
+  createdAt    DateTime  @default(now())
+
+  @@index([dismissedAt])
+  @@index([entityType, entityId])
+}
+
+model Job {
+  id         String    @id @default(cuid())
+  type       String
+  payloadJson Json?
+  status     JobStatus @default(queued)
+  runAt      DateTime  @default(now())
+  attempts   Int       @default(0)
+  lastError  String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([status, runAt])
+  @@index([type])
+}

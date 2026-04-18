@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Gmail 폴링 launchd 에이전트 (macOS).
+  설치:
+    1) USERNAME, APP_URL, CRON_SECRET 을 본인 값으로 치환
+    2) ~/Library/LaunchAgents/com.uskmh.gmail-poll.plist 로 복사
+    3) launchctl load ~/Library/LaunchAgents/com.uskmh.gmail-poll.plist
+    4) launchctl list | grep com.uskmh.gmail-poll 로 확인
+  해제: launchctl unload ~/Library/LaunchAgents/com.uskmh.gmail-poll.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.uskmh.gmail-poll</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/curl</string>
+        <string>-sS</string>
+        <string>-X</string>
+        <string>POST</string>
+        <string>-H</string>
+        <string>Authorization: Bearer REPLACE_WITH_CRON_SECRET</string>
+        <string>APP_URL/api/cron/gmail-poll</string>
+    </array>
+
+    <!-- 5분마다 실행 -->
+    <key>StartInterval</key>
+    <integer>300</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/USERNAME/Library/Logs/hub-gmail-poll.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/USERNAME/Library/Logs/hub-gmail-poll.err.log</string>
+</dict>
+</plist>

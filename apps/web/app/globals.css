@@ -1,4 +1,48 @@
-﻿
-{ box-sizing: border-box; }
-body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #fafafa; color: #111; }
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f5f7f7;
+  --fg: #0f172a;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", sans-serif;
+}
+
 a { color: inherit; text-decoration: none; }
+
+@layer components {
+  .card {
+    @apply bg-white rounded-xl border border-slate-200 shadow-sm p-4;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors;
+  }
+  .btn-primary {
+    @apply btn bg-brand text-white hover:bg-brand-600;
+  }
+  .btn-ghost {
+    @apply btn bg-slate-100 text-slate-700 hover:bg-slate-200;
+  }
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700;
+  }
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge-low { @apply badge bg-emerald-50 text-emerald-700 border border-emerald-200; }
+  .badge-medium { @apply badge bg-amber-50 text-amber-700 border border-amber-200; }
+  .badge-high { @apply badge bg-red-50 text-red-700 border border-red-200; }
+  .badge-neutral { @apply badge bg-slate-100 text-slate-700 border border-slate-200; }
+  .input {
+    @apply w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand;
+  }
+  .label { @apply block text-xs font-medium text-slate-600 mb-1; }
+}
