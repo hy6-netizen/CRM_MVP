@@ -49,7 +49,9 @@ const VALID_FROM = /naverbooking(_noreply)?@navercorp\.com/i;
 
 function detectEvent(subject: string | undefined): NaverBookingEventType | null {
   if (!subject) return null;
-  if (/새로운\s*예약.*접수/.test(subject)) return "created";
+  // "새로운 예약이 접수 되었습니다" (관리자 확인 모드) 또는
+  // "새로운 예약이 확정 되었습니다" (즉시 확정 모드) 둘 다 created 로 처리.
+  if (/새로운\s*예약.*(접수|확정)/.test(subject)) return "created";
   if (/예약을?\s*취소/.test(subject)) return "canceled";
   if (/예약을?\s*변경/.test(subject)) return "changed";
   return null;

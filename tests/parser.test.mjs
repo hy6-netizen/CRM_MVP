@@ -10,6 +10,8 @@ test("네이버 예약 이메일 파서 — 3 이벤트 (created/canceled/change
     assert.ok(c.includes(label), `라벨 누락: ${label}`);
   }
   for (const pat of ["새로운", "취소", "변경"]) assert.ok(c.includes(pat), `제목 패턴 누락: ${pat}`);
+  // 즉시 확정 모드 지원 — "새로운 예약이 확정 되었습니다" 제목
+  assert.ok(/접수\|확정|접수.*확정|확정.*접수/.test(c), "즉시 확정 모드 지원 (접수|확정 패턴) 필요");
   for (const ev of ["created", "canceled", "changed"]) {
     assert.ok(c.includes(`"${ev}"`), `eventType 누락: ${ev}`);
   }
